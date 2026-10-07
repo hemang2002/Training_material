@@ -1,0 +1,32 @@
+# Course environment. Python 3.10 - 3.13.
+# winget install --id=astral-sh.uv -e
+# CPU-only PyTorch:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r requirements.txt
+# With an NVIDIA GPU, install torch/torchvision following https://pytorch.org/get-started/locally/ instead.
+
+torch>=2.3
+torchvision>=0.18
+
+# notebooks & analysis
+jupyterlab
+ipykernel
+numpy
+pandas
+matplotlib
+scikit-learn
+pillow
+
+# model export & optimized inference
+onnx>=1.16
+onnxscript
+onnxruntime>=1.18
+pycocotools
+
+# serving
+flask>=3.0
+requests
+streamlit>=1.35
+pytest
+gunicorn ; platform_system != "Windows"
+waitress ; platform_system == "Windows"

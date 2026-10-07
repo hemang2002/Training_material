@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>14 · Image segmentation — Training, Visualized</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .hero h1{font-size:clamp(2rem,5vw,3rem);letter-spacing:-.025em;line-height:1.08;margin-bottom:.3em}
+  .sub{color:var(--muted);font-size:1.1rem;margin:.2rem 0 .8rem}
+  .bigq{font-size:clamp(1.3rem,3vw,1.75rem);letter-spacing:-.015em;line-height:1.2;font-weight:700;margin:0 0 .5rem}
+  canvas.pix{image-rendering:pixelated}
+  .scene{aspect-ratio:4/3}
+  .tap{cursor:crosshair;touch-action:pan-y}
+  .narrow{max-width:640px}
+  .chipsrow{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.7rem}
+  .wchip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:.3rem .8rem;font-size:.92rem}
+  .stepcap{font-size:1.2rem;font-weight:700;min-height:2rem;margin:.5rem .2rem .3rem}
+  .clslegend{display:flex;flex-wrap:wrap;gap:.35rem .8rem;font-size:.85rem;margin:.35rem .3rem}
+  .clslegend i{display:inline-block;width:.8rem;height:.8rem;border-radius:3px;margin-right:.3rem;vertical-align:-1px}
+  .btnrow{display:flex;flex-wrap:wrap;gap:.45rem;margin:.6rem 0 .3rem;align-items:center}
+  .btnrow .btn.on{border-color:var(--blue);background:#e7f0ff}
+  .btnrow .btn.cut{border-color:var(--orange);background:#fff4e6;color:#d9480f}
+
+  /* hero: colouring book */
+  .book{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem;background:#fff;border:1px solid var(--line);border-radius:18px;padding:1rem;box-shadow:var(--shadow);max-width:52rem}
+  .book figure{margin:0;text-align:center}
+  .book svg{display:block;width:100%;height:auto;background:#fcfcfd;border:1px solid var(--line);border-radius:12px}
+  .book figcaption{font-weight:700;font-size:clamp(.8rem,2.2vw,1rem);margin-top:.35rem;line-height:1.3}
+  .book figcaption small{display:block;font-weight:500;color:var(--muted)}
+  .book .tagline{grid-column:1 / -1;font-size:1.05rem;font-weight:700;color:var(--blue);text-align:center;display:flex;gap:.6rem;justify-content:center;align-items:center;flex-wrap:wrap}
+  .book .tagline .btn{font-size:.8rem;padding:.2rem .6rem}
+  .heroart.go .tag{animation:popin .5s .4s cubic-bezier(.3,1.5,.5,1) both;transform-box:fill-box;transform-origin:center}
+  .heroart.go .box{stroke-dasharray:520;animation:draw 1s 1.2s ease-out both}
+  .heroart.go .px{animation:pxin .25s ease-out both}
+  @keyframes popin{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:none}}
+  @keyframes draw{from{stroke-dashoffset:520}to{stroke-dashoffset:0}}
+  @keyframes pxin{from{opacity:0}to{opacity:1}}
+
+  /* ② big pixel readout */
+  .readout{display:flex;align-items:center;gap:.8rem;background:#fff;border:2px solid var(--line);border-radius:14px;padding:.4rem .9rem;margin:.6rem 0;min-height:3.4rem;font-size:1.05rem;font-weight:600}
+  .readout .num{font:800 2.2rem/1 var(--mono);min-width:2.2rem;text-align:center}
+
+  /* ④ IoU */
+  .fvis{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;font-weight:800;font-size:1.15rem;margin:.2rem 0 .7rem}
+  .fvis .sq{display:inline-flex;align-items:center;gap:.3rem;border-radius:8px;padding:.15rem .55rem;color:#fff;font-size:.95rem}
+  .bigs{display:flex;flex-wrap:wrap;gap:.7rem;margin:.4rem 0}
+  .bignum{background:#fff;border:1px solid var(--line);border-radius:14px;padding:.5rem .9rem;text-align:center;min-width:8rem}
+  .bignum b{display:block;font:800 2rem/1.1 var(--sans);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .bignum span{font-size:.85rem;color:var(--muted)}
+  .meter{position:relative;margin:1.6rem 0 .3rem;max-width:34rem}
+  .meter .bar{display:grid;grid-template-columns:50fr 25fr 15fr 10fr;height:1.4rem;border-radius:99px;overflow:hidden}
+  .meter .bar i{display:block}
+  .meter .lbl{display:grid;grid-template-columns:50fr 25fr 15fr 10fr;font-size:.75rem;font-weight:700;color:var(--muted);margin-top:.2rem}
+  .meter .lbl span{white-space:nowrap;overflow:hidden;text-overflow:clip}
+  .meter .mark{position:absolute;top:-1.35rem;left:0;transform:translateX(-50%);font-size:1.1rem;transition:left .35s ease-out;line-height:1}
+  .slide{display:flex;align-items:center;gap:.6rem;max-width:34rem;margin:.4rem 0;font-weight:600;font-size:.95rem}
+  .slide input{flex:1;accent-color:var(--blue)}
+  .advctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:.4rem 1rem;max-width:44rem}
+
+  /* cards */
+  .when{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:.8rem}
+  .wcard{background:#fff;border:1px solid var(--line);border-radius:16px;padding:.9rem 1rem;text-align:center}
+  .wcard .pic{font-size:2.4rem;line-height:1.2}
+  .wcard .if{font-weight:600;margin:.3rem 0 .5rem;min-height:2.6rem}
+  .wcard .then{display:inline-block;font-weight:800;border-radius:999px;padding:.3rem .9rem}
+  .bignums{display:flex;flex-wrap:wrap;gap:.7rem;margin:.4rem 0 1rem}
+
+  @media (prefers-reduced-motion:reduce){.heroart *,.meter .mark{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="topbar-in">
+  <a class="brand" href="index.html">🧠 Training, <span>Visualized</span></a>
+  <nav class="nav">
+    <a href="01_what_is_a_model.html" title="What is a model?">1</a>
+    <a href="02_gradient_descent.html" title="Gradient descent">2</a>
+    <a href="03_backpropagation.html" title="Backpropagation">3</a>
+    <a href="04_training_loop.html" title="The training loop">4</a>
+    <a href="05_activation_functions.html" title="Activation functions &amp; softmax">5</a>
+    <a href="06_neural_network_playground.html" title="Neural network playground">6</a>
+    <a href="07_overfitting.html" title="Overfitting">7</a>
+    <a href="08_dropout_batchnorm.html" title="Dropout &amp; BatchNorm">8</a>
+    <a href="09_metrics.html" title="Is it any good? Metrics">9</a>
+    <a href="10_cnn_convolution.html" title="How a CNN sees">10</a>
+    <a href="11_transfer_learning.html" title="Transfer learning">11</a>
+    <a href="12_quantization_pruning.html" title="Quantization &amp; pruning">12</a>
+    <a href="13_data_augmentation.html" title="Data augmentation">13</a>
+    <a href="14_image_segmentation.html" class="on" title="Image segmentation">14</a>
+    <a href="15a_text_to_numbers.html" title="Text to numbers">15a</a>
+    <a href="15_rnn_lstm.html" title="RNN &amp; LSTM">15</a>
+    <!-- <a href="16_reinforcement_learning.html" title="Reinforcement learning">16</a> -->
+  </nav>
+  <button class="modebtn" id="modeBtn" type="button">👶 Simple view</button>
+</div></header>
+
+<main class="wrap">
+<section class="hero">
+  <div class="kicker">Lesson 14 of 15 · ≈ 25 min</div>
+  <h1>Image segmentation: colour every pixel</h1>
+  <p class="sub">The model doesn't just say what's in a photo. It colours in exactly where it is.</p>
+  <div class="book heroart" id="book">
+    <figure><svg viewBox="0 0 200 170" id="bk1" aria-label="A cat drawing with a label: cat"></svg><figcaption>🏷️ "There's a cat"<small>classification</small></figcaption></figure>
+    <figure><svg viewBox="0 0 200 170" id="bk2" aria-label="A cat drawing with a box around it"></svg><figcaption>📦 "It's in this box"<small>detection</small></figcaption></figure>
+    <figure><svg viewBox="0 0 200 170" id="bk3" aria-label="A cat drawing coloured in, pixel by pixel"></svg><figcaption>🎨 "These pixels are cat"<small>segmentation</small></figcaption></figure>
+    <div class="tagline">🖍️ Like a colouring book, right up to the lines. <button class="btn" id="replay" type="button">↻ Replay</button></div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>① Four questions, one street</h2>
+  <p class="bigq">Each question wants more detail than the last.</p>
+  <div class="seg" id="taskSeg">
+    <button data-t="cls" class="on">🏷️ Classify</button><button data-t="det">📦 Detect</button><button data-t="sem">🎨 Segment</button><button data-t="ins">🧩 Instances</button>
+  </div>
+  <button class="btn primary" id="taskPlay" style="margin-left:.4rem">▶ Play all</button>
+  <div class="stepcap" id="taskCap"></div>
+  <div class="canvas-box narrow"><canvas id="taskc" class="scene"></canvas><div class="clslegend" id="taskLegend"></div></div>
+  <div class="explain adv" id="taskOut" style="margin-top:.6rem;min-height:0"></div>
+</section>
+
+<section class="card">
+  <h2>② The mask is just numbers</h2>
+  <p class="bigq">👆 Tap any pixel. Every pixel gets one class number.</p>
+  <div class="btnrow" id="gridBtns">
+    <button class="btn" data-n="16">🟫 Big pixels</button><button class="btn on" data-n="32">🔲 Medium</button><button class="btn" data-n="64">🔬 Tiny pixels</button>
+  </div>
+  <div class="readout" id="pixInfo">👆 Tap a pixel…</div>
+  <div class="grid2">
+    <div class="canvas-box"><div class="canvas-title">📷 The photo</div><canvas id="gridPhoto" class="scene pix tap"></canvas></div>
+    <div class="canvas-box"><div class="canvas-title">🖍️ The mask (numbers)</div><canvas id="gridNum" class="scene tap"></canvas></div>
+  </div>
+  <div class="clslegend" id="gridLegend"></div>
+  <div class="look">👀 Edge pixels are half person, half road, but get only <b>one</b> number.</div>
+  <div class="adv" style="margin-top:.6rem">
+    <div class="ctl" style="max-width:24rem"><label>Mask opacity on the photo <output id="opOut">60%</output></label><input type="range" id="op" min="0" max="100" value="60"></div>
+    <div class="small muted" id="pixCount"></div>
+    <div class="small muted">In PyTorch the mask is a tensor of shape <code>[H, W]</code> with dtype <code>long</code>. Colours are only for us humans.</div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>③ How the model works: shrink, then grow back</h2>
+  <p class="bigq">🔽 Shrink to understand WHAT. 🔼 Grow back to draw WHERE.</p>
+  <div class="canvas-box" style="overflow-x:auto"><canvas id="unetc" class="pix" style="min-width:560px"></canvas></div>
+  <div class="btnrow">
+    <button class="btn" id="uBack">◀</button><button class="btn" id="uNext">Next ▶</button>
+    <button class="btn primary" id="uPlay">▶ Play all</button>
+    <button class="btn" id="uCut">✂️ Cut the bridges</button>
+    <span class="small muted" id="uStepNo"></span>
+  </div>
+  <div class="stepcap" id="uExplain"></div>
+  <div class="trio grid3" style="max-width:640px;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem;margin-top:.6rem">
+    <figure style="margin:0;text-align:center;font-size:.85rem;font-weight:600"><canvas id="tTrue" class="pix" style="width:100%;aspect-ratio:1;border-radius:8px;border:1px solid var(--line)"></canvas>✅ True mask</figure>
+    <figure style="margin:0;text-align:center;font-size:.85rem;font-weight:600"><canvas id="tSkip" class="pix" style="width:100%;aspect-ratio:1;border-radius:8px;border:1px solid var(--line)"></canvas>🌉 With bridges</figure>
+    <figure style="margin:0;text-align:center;font-size:.85rem;font-weight:600"><canvas id="tNoSkip" class="pix" style="width:100%;aspect-ratio:1;border-radius:8px;border:1px solid var(--line)"></canvas>✂️ No bridges = blob</figure>
+  </div>
+  <div class="small muted" style="margin-top:.3rem">Drawn to show the expected effect, not a trained model.</div>
+  <div class="chipsrow">
+    <span class="wchip">🔽 <b>Encoder</b> = shrinks, learns WHAT</span>
+    <span class="wchip">🔼 <b>Decoder</b> = grows back, says WHERE</span>
+    <span class="wchip">🌉 <b>Skip bridge</b> = copies sharp edges across</span>
+    <span class="wchip">🎁 Encoder can be <b>pretrained</b> (Lesson 11)</span>
+  </div>
+  <div class="grid2 adv" style="margin-top:1rem">
+    <div>
+      <h3>📏 How is it trained?</h3>
+      <p class="small">Like a classifier, but <b>once per pixel</b>: cross-entropy of every pixel (Lesson 5), averaged over all pixels. A 128 × 128 picture = 16,384 small classification problems at once.
+      The encoder is a normal classification CNN, so a <b>pretrained backbone</b> (MobileNetV3, ResNet) can be reused and only the decoder taught.</p>
+    </div>
+    <div>
+      <h3>🎓 The Dice loss</h3>
+      <p class="small">If people cover only 5% of the pixels, plain cross-entropy is mostly about background. Dice looks at the overlap directly:</p>
+      <div class="explain" style="min-height:0"><span class="formula">Dice      = 2·|P ∩ T| / (|P| + |T|)
+Dice loss = 1 − Dice</span></div>
+      <p class="small">Often <code>loss = CE + Dice loss</code>. Real U-Nets: two 3×3 conv + BatchNorm + ReLU per block, max-pool to go down, transposed conv or bilinear upsampling to go up,
+      <code>torch.cat</code> for the skips. DeepLabV3 and LR-ASPP are lighter "encoder + small decoder" designs.</p>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>④ Is the mask any good?</h2>
+  <p class="bigq">📏 IoU = how much the guess overlaps the real person.</p>
+  <div class="fvis">IoU =
+    <span class="sq" style="background:#2f9e44">🟩 found</span> ÷ (
+    <span class="sq" style="background:#2f9e44">found</span> +
+    <span class="sq" style="background:#e03131">wrong</span> +
+    <span class="sq" style="background:#2f6fed">missed</span> )</div>
+  <div class="btnrow" id="preBtns">
+    <button class="btn on" data-p="perfect">🎯 Perfect</button><button class="btn" data-p="blob">🫧 Rough blob</button>
+    <button class="btn" data-p="none">🚫 No person anywhere</button><button class="btn" data-p="all">🟥 Everything is person</button>
+  </div>
+  <div class="grid2" style="align-items:start">
+    <div class="canvas-box"><canvas id="iouc" class="scene pix"></canvas>
+      <div class="legend"><span><i style="background:#2f9e44"></i>found</span><span><i style="background:#e03131"></i>wrong</span><span><i style="background:#2f6fed"></i>missed</span></div></div>
+    <div>
+      <div class="slide">↔️ Slide the guess <input type="range" id="sx" min="-40" max="40" value="0"> <output id="sxOut">0</output></div>
+      <div class="bigs">
+        <div class="bignum"><b id="sIoU" style="color:var(--blue)">–</b><span>📏 IoU</span></div>
+        <div class="bignum"><b id="sAcc" style="color:var(--orange)">–</b><span>🎯 Pixel accuracy</span></div>
+        <div class="bignum adv"><b id="sDice">–</b><span>Dice</span></div>
+        <div class="bignum adv"><b id="sMIoU">–</b><span>Mean IoU (2 classes)</span></div>
+      </div>
+      <div class="meter"><span class="mark" id="iouMark">🔻</span>
+        <div class="bar"><i style="background:#ffc9c9"></i><i style="background:#ffec99"></i><i style="background:#b2f2bb"></i><i style="background:#69db7c"></i></div>
+        <div class="lbl"><span>❌ poor</span><span>➖ okay</span><span title="good">✅</span><span title="excellent">🌟</span></div>
+      </div>
+      <div class="banner info" id="iouVerdict">–</div>
+      <div class="small muted adv" id="sCounts"></div>
+    </div>
+  </div>
+  <div class="adv" style="margin-top:.8rem">
+    <div class="advctl">
+      <div class="ctl"><label>Predicted shape</label><select id="pShape"><option value="exact">person shape</option><option value="blob">rough blob (ellipse)</option><option value="box">box</option><option value="none">nothing (all background)</option><option value="all">everything is person</option></select></div>
+      <div class="ctl"><label>Shift up / down <output id="syOut">0</output></label><input type="range" id="sy" min="-40" max="40" value="0"></div>
+      <div class="ctl"><label>Size <output id="szOut">100%</output></label><input type="range" id="sz" min="50" max="160" value="100"></div>
+    </div>
+    <div class="explain" style="min-height:0"><span class="formula">IoU  = TP ÷ (TP + FP + FN)
+Dice = 2·TP ÷ (2·TP + FP + FN)
+Pixel accuracy = (TP + TN) ÷ all pixels</span>
+      Pixel accuracy counts the easy background too. People are ≈ 5% of this picture, so "no person anywhere" still scores ≈ 95%. Rules of thumb: IoU &lt; 0.5 poor, 0.5–0.75 okay, &gt; 0.75 good, &gt; 0.9 excellent. Dice is always a bit higher than IoU.</div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>⑤ Flip the photo? Flip the mask too!</h2>
+  <p class="bigq">🔄 Augmentation must move photo and mask together.</p>
+  <div class="btnrow"><button class="btn" id="fOrig">↺ Original</button><button class="btn" id="fBoth">🔄 Flip both</button><button class="btn" id="fImg">⚠️ Flip only the photo</button></div>
+  <div class="canvas-box narrow"><canvas id="flipc" class="scene"></canvas></div>
+  <div class="banner good narrow" id="flipMsg">Photo and mask match.</div>
+</section>
+
+<section class="card">
+  <h2>🌍 Day 2, Notebook 06: find people in street photos</h2>
+  <div class="bignums">
+    <div class="bignum"><b style="color:var(--blue)">170</b><span>📷 street photos (Penn-Fudan)</span></div>
+    <div class="bignum"><b style="color:var(--pink)">2</b><span>🎨 classes: person, background</span></div>
+    <div class="bignum"><b style="color:var(--purple)">50,176</b><span>🧮 answers per 224 × 224 photo</span></div>
+  </div>
+  <p class="bigq">Which model wins?</p>
+  <div class="when">
+    <div class="wcard"><div class="pic">🎁</div><div class="if">Pretrained, no training at all</div><span class="then" style="background:#e7f0ff;color:var(--blue)">✅ Already good</span></div>
+    <div class="wcard"><div class="pic">🧱</div><div class="if">Our own small U-Net, from scratch</div><span class="then" style="background:#fff4e6;color:#d9480f">➖ Blobby edges</span></div>
+    <div class="wcard"><div class="pic">🎁🔧</div><div class="if">Pretrained + fine-tuned on our photos</div><span class="then" style="background:#ebfbee;color:var(--green)">🌟 Usually the best</span></div>
+  </div>
+  <div class="small muted" style="margin-top:.5rem">Expected results. Run the notebook to see your own numbers.</div>
+  <ol class="steps adv small" style="margin-top:.9rem">
+    <li><b>📦 Penn-Fudan pedestrians</b>170 street photos, each with a mask of the people. Very few for deep learning.</li>
+    <li><b>🔄 Augment photo and mask together</b>Flips, crops, rotations hit both. Colour changes only touch the photo.</li>
+    <li><b>🎁 Pretrained out of the box</b>LR-ASPP MobileNetV3 or DeepLabV3, trained on COCO with the 21 VOC classes. It already knows "person".</li>
+    <li><b>🧱 Small U-Net from scratch</b>Random weights, 170 photos: finds roughly where people are, with blobby edges and lower IoU (Lesson 11).</li>
+    <li><b>🔧 Fine-tune</b>Replace the last layer with a 2-class head and train gently: pretrained features + our exact task.</li>
+    <li><b>📏 Measure with IoU</b>On test photos the model never saw. Not pixel accuracy (see ④).</li>
+  </ol>
+</section>
+
+<section class="card">
+  <h2>Where is it used?</h2>
+  <div class="when">
+    <div class="wcard"><div class="pic">🚗</div><div class="if">Self-driving: road, lane, person</div></div>
+    <div class="wcard"><div class="pic">🩻</div><div class="if">Doctors: outline a tumour</div></div>
+    <div class="wcard"><div class="pic">🤳</div><div class="if">Phones: blur the background</div></div>
+    <div class="wcard"><div class="pic">🛰️</div><div class="if">Maps: buildings, roads, water</div></div>
+  </div>
+</section>
+
+<section class="card adv">
+  <h2>🐍 The same thing in PyTorch (Notebook 06)</h2>
+  <pre class="code"><span class="k">import</span> torch, torch.nn <span class="k">as</span> nn
+<span class="k">from</span> torchvision.models.segmentation <span class="k">import</span> lraspp_mobilenet_v3_large, LRASPP_MobileNet_V3_Large_Weights
+
+weights = LRASPP_MobileNet_V3_Large_Weights.DEFAULT                 <span class="c"># pretrained on COCO, 21 VOC classes</span>
+model = lraspp_mobilenet_v3_large(weights=weights)
+model.eval()                              <span class="c"># inference mode</span>
+out = model(x)[<span class="s">'out'</span>]                  <span class="c"># [B, 21, H, W]: a score per class, per pixel</span>
+mask = out.argmax(dim=<span class="n">1</span>)               <span class="c"># [B, H, W]: class id per pixel (15 = person)</span>
+
+<span class="c"># fine-tune: new 2-class head (0 = background, 1 = person)</span>
+model.classifier.low_classifier  = nn.Conv2d(<span class="n">40</span>,  <span class="n">2</span>, kernel_size=<span class="n">1</span>)
+model.classifier.high_classifier = nn.Conv2d(<span class="n">128</span>, <span class="n">2</span>, kernel_size=<span class="n">1</span>)
+loss_fn = nn.CrossEntropyLoss()           <span class="c"># works per pixel: logits [B,2,H,W], target [B,H,W] (long)</span>
+opt = torch.optim.Adam(model.parameters(), lr=<span class="n">3e-4</span>)   <span class="c"># small learning rate (Lesson 11)</span>
+
+<span class="k">def</span> iou(pred, true, cls=<span class="n">1</span>):
+    p, t = pred == cls, true == cls
+    <span class="k">return</span> (p &amp; t).sum() / (p | t).sum().clamp(min=<span class="n">1</span>)</pre>
+  <p class="small muted">A U-Net decoder step: <code>x = up(x); x = torch.cat([x, skip], dim=1); x = conv_block(x)</code>. The <code>cat</code> is the skip connection.
+  Augmentation: use <code>torchvision.transforms.v2</code> with the image and a <code>tv_tensors.Mask</code> together, so flips and crops hit both.</p>
+</section>
+
+<section class="callout think">
+  <h3>🤔 Quick quiz</h3>
+  <ol class="challenges">
+    <li>🚫 "No person anywhere" scores 95% pixel accuracy. Good model?
+      <details class="answer"><summary>Answer</summary>No. 📏 IoU = 0: it found nobody. That's why we use IoU.</details></li>
+    <li>You flip a photo but forget to flip its mask. What happens?
+      <details class="answer"><summary>Answer</summary>The answers are wrong: the model is taught that road is a person.</details></li>
+    <li>To count people in a crowd: 🎨 semantic or 🧩 instance?
+      <details class="answer"><summary>Answer</summary>🧩 Instance: each person gets their own mask, so you can count them.</details></li>
+  </ol>
+</section>
+
+<nav class="pager">
+  <a href="13_data_augmentation.html"><small>← Previous</small>13 · Data augmentation</a>
+  <a class="next" href="15a_text_to_numbers.html"><small>Next →</small>15a · Text to numbers</a>
+</nav>
+</main>
+<footer>Training, Visualized · works offline</footer>
+
+<script>
+const $=s=>document.querySelector(s);
+const put=(el,html)=>el.replaceChildren(document.createRange().createContextualFragment(html));
+function setupCanvas(cv){const dpr=window.devicePixelRatio||1,r=cv.getBoundingClientRect();
+  cv.width=Math.max(1,Math.round(r.width*dpr));cv.height=Math.max(1,Math.round(r.height*dpr));
+  const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);return {ctx,w:r.width,h:r.height};}
+const pct=v=>(v*100).toFixed(1)+'%';
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+// ================= hero: colouring book cat =================
+(function(){const NS='http://www.w3.org/2000/svg';
+  const inTri=(x,y,a,b,c)=>{const s=(p,q,r)=>(p[0]-r[0])*(q[1]-r[1])-(q[0]-r[0])*(p[1]-r[1]);const d1=s([x,y],a,b),d2=s([x,y],b,c),d3=s([x,y],c,a);return !((d1<0||d2<0||d3<0)&&(d1>0||d2>0||d3>0));};
+  const E1=[[74,46],[78,14],[98,34]],E2=[[126,46],[122,14],[102,34]];
+  const inCat=(x,y)=>Math.hypot(x-100,y-60)<=30||((x-100)/46)**2+((y-122)/34)**2<=1||inTri(x,y,...E1)||inTri(x,y,...E2);
+  const outline=`<g fill="#fff" stroke="#495057" stroke-width="3" stroke-linejoin="round"><ellipse cx="100" cy="122" rx="46" ry="34"/><polygon points="${E1.join(' ')}"/><polygon points="${E2.join(' ')}"/><circle cx="100" cy="60" r="30"/></g>
+    <g fill="#495057"><circle cx="89" cy="56" r="3.5"/><circle cx="111" cy="56" r="3.5"/><path d="M96,66 L104,66 L100,71 Z"/></g>`;
+  const lines=`<g fill="none" stroke="#495057" stroke-width="3" stroke-linejoin="round"><ellipse cx="100" cy="122" rx="46" ry="34"/><polygon points="${E1.join(' ')}"/><polygon points="${E2.join(' ')}"/><path d="M71,68 A30,30 0 1,1 129,68"/></g>
+    <g fill="#1c2230"><circle cx="89" cy="56" r="3.5"/><circle cx="111" cy="56" r="3.5"/><path d="M96,66 L104,66 L100,71 Z"/></g>`;
+  $('#bk1').innerHTML=outline+`<g class="tag"><rect x="122" y="8" width="70" height="30" rx="15" fill="#2f6fed"/><text x="157" y="29" text-anchor="middle" font-size="17" font-weight="700" fill="#fff">🏷️ cat</text></g>`;
+  $('#bk2').innerHTML=outline+`<rect class="box" x="48" y="10" width="104" height="150" rx="4" fill="none" stroke="#f08c00" stroke-width="4"/><g class="tag" style="animation-delay:2s"><rect x="48" y="0" width="44" height="18" fill="#f08c00"/><text x="70" y="14" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">cat</text></g>`;
+  const st=9;let px='',k=0;for(let y=4;y<166;y+=st)for(let x=46;x<156;x+=st)if(inCat(x+st/2,y+st/2)){px+=`<rect class="px" x="${x}" y="${y}" width="${st-1}" height="${st-1}" rx="1" fill="#d6336c" style="animation-delay:${(2.2+k*0.012).toFixed(3)}s"/>`;k++;}
+  $('#bk3').innerHTML=`<rect x="0" y="0" width="200" height="170" fill="#fcfcfd"/>`+px+lines;
+  const book=$('#book');book.classList.add('go');
+  $('#replay').onclick=()=>{book.classList.remove('go');void book.offsetWidth;book.classList.add('go');};})();
+
+// ================= the procedural street scene =================
+// logical size 320 × 240; class ids: 0 background, 1 person, 2 car, 3 road, 4 tree
+const LW=320,LH=240,R=2,RW=LW*R,RH=LH*R;
+const NAMES=['background','person','car','road','tree'],EMO=['🌫️','🚶','🚗','🛣️','🌳'];
+const COL=[[134,142,150],[214,51,108],[47,111,237],[112,72,232],[47,158,68]];
+const css=c=>`rgb(${c[0]},${c[1]},${c[2]})`;
+const PEOPLE=[
+  {id:1,cx:70,ty:86,s:1,col:{shirt:[224,49,49],pants:[36,70,140],skin:[241,194,160],hair:[60,40,30],shoe:[30,30,30]}},
+  {id:2,cx:118,ty:96,s:0.8,col:{shirt:[250,176,5],pants:[60,60,70],skin:[200,150,115],hair:[25,20,20],shoe:[40,30,30]}}];
+const BUILD=[[0,50,60,[222,205,180]],[50,105,38,[200,190,210]],[105,160,72,[230,215,190]],[160,215,48,[205,215,225]],[215,270,80,[225,200,195]],[270,320,55,[210,205,190]]];
+function hash(x,y){let h=(x*374761393+y*668265263)|0;h=Math.imul(h^(h>>>13),1274126177);return ((h^(h>>>16))>>>0)/4294967296;}
+function personPart(x,y,p){const s=p.s,dx=x-p.cx,ty=p.ty,ax=Math.abs(dx);
+  const hy=ty+9*s;if(dx*dx+(y-hy)**2<(8.5*s)**2)return y<ty+6*s?'hair':'skin';
+  if(ax<=4*s&&y>=ty+16*s&&y<ty+19*s)return 'skin';
+  if(ax<=11*s&&y>=ty+18*s&&y<=ty+60*s){if(y<ty+22*s&&ax>11*s-(y-ty-18*s)*1.5)return null;return 'shirt';}
+  if(ax>11*s&&ax<=15.5*s&&y>=ty+21*s&&y<=ty+56*s)return y>ty+51*s?'skin':'shirt';
+  if(y>ty+60*s&&y<=ty+104*s&&ax>=1.5*s&&ax<=10*s)return y>ty+100*s?'shoe':'pants';
+  return null;}
+function carPart(x,y){
+  for(const cx of [174,228]){const d=Math.hypot(x-cx,y-177);if(d<11)return d<4.5?'hub':'wheel';}
+  if(x>=150&&x<=252&&y>=140&&y<=176){if((x<156||x>246)&&(y<146||y>170)){const qx=x<156?156:246,qy=y<146?146:170;if(Math.hypot(x-qx,y-qy)>6)return null;}
+    if(x>=245&&y>=146&&y<=152)return 'light';return 'body';}
+  if(y>=116&&y<140){const t=(140-y)/24,l=172+12*t,r=232-12*t;if(x>=l&&x<=r){if(x>=l+3&&x<=r-3&&y>=119&&!(x>=201&&x<=205))return 'window';return 'body';}}
+  return null;}
+const CARCOL={body:[21,170,191],wheel:[40,40,45],hub:[170,170,175],window:[190,225,240],light:[255,230,120]};
+function treePart(x,y){for(const [cx,cy,r] of [[286,72,32],[266,94,20],[304,96,20]])if(Math.hypot(x-cx,y-cy)<r)return 'crown';
+  if(x>=281&&x<=291&&y>=100&&y<=168)return 'trunk';return null;}
+const shade=(c,d)=>[clamp(c[0]+d,0,255),clamp(c[1]+d,0,255),clamp(c[2]+d,0,255)];
+function sample(x,y){const n=hash(Math.floor(x*2),Math.floor(y*2))-.5;
+  for(const p of PEOPLE){const part=personPart(x,y,p);if(part)return [1,p.id,...shade(p.col[part],n*14)];}
+  const c=carPart(x,y);if(c)return [2,3,...shade(CARCOL[c],n*10)];
+  const t=treePart(x,y);if(t){if(t==='trunk')return [4,0,...shade([120,80,50],n*18)];const b=Math.sin(x*.35)*Math.cos(y*.4);return [4,0,...shade([46+20*b,130+30*b,60+15*b],n*26)];}
+  if(y>=162){if(y>=200&&y<=204&&(x%40)<22)return [3,0,240,240,232];return [3,0,...shade([88,90,98],n*16)];}
+  if(y>=150)return [0,0,...shade((x%20)<1||y<151?[170,165,155]:[205,200,190],n*8)];
+  for(const [x0,x1,top,col] of BUILD)if(x>=x0&&x<x1&&y>=top){const wx=(x-x0)%12,wy=(y-top)%14;
+    if(wx>=3&&wx<8&&wy>=4&&wy<10&&y<142&&x-x0>2&&x1-x>2)return [0,0,...shade([120,140,165],n*10)];return [0,0,...shade(col,n*6)];}
+  return [0,0,150+y*.35,195+y*.2,240];}
+const CLS=new Uint8Array(RW*RH),INST=new Uint8Array(RW*RH);
+const photo=document.createElement('canvas');photo.width=RW;photo.height=RH;
+const semC=document.createElement('canvas'),insC=document.createElement('canvas'),perC=document.createElement('canvas');
+[semC,insC,perC].forEach(c=>{c.width=RW;c.height=RH;});
+(function build(){const ip=new ImageData(RW,RH),is=new ImageData(RW,RH),ii=new ImageData(RW,RH),ie=new ImageData(RW,RH);
+  const IC={1:[214,51,108],2:[240,140,0],3:[47,111,237]};
+  for(let j=0;j<RH;j++)for(let i=0;i<RW;i++){const k=j*RW+i,s=sample((i+.5)/R,(j+.5)/R),q=4*k;CLS[k]=s[0];INST[k]=s[1];
+    ip.data[q]=s[2];ip.data[q+1]=s[3];ip.data[q+2]=s[4];ip.data[q+3]=255;
+    const cc=COL[s[0]];is.data[q]=cc[0];is.data[q+1]=cc[1];is.data[q+2]=cc[2];is.data[q+3]=255;
+    if(s[1]){const ic=IC[s[1]];ii.data[q]=ic[0];ii.data[q+1]=ic[1];ii.data[q+2]=ic[2];ii.data[q+3]=255;}
+    if(s[0]===1){ie.data[q]=214;ie.data[q+1]=51;ie.data[q+2]=108;ie.data[q+3]=255;}}
+  photo.getContext('2d').putImageData(ip,0,0);semC.getContext('2d').putImageData(is,0,0);insC.getContext('2d').putImageData(ii,0,0);perC.getContext('2d').putImageData(ie,0,0);})();
+function bbox(test){let x0=1e9,y0=1e9,x1=-1,y1=-1;for(let j=0;j<RH;j++)for(let i=0;i<RW;i++)if(test(j*RW+i)){if(i<x0)x0=i;if(i>x1)x1=i;if(j<y0)y0=j;if(j>y1)y1=j;}
+  return [x0/R,y0/R,(x1+1)/R,(y1+1)/R];}
+const BOX={p1:bbox(k=>INST[k]===1),p2:bbox(k=>INST[k]===2),car:bbox(k=>INST[k]===3),tree:bbox(k=>CLS[k]===4)};
+
+
+// ================= ① four tasks =================
+const TASK={cur:'cls',timer:null};
+const TASKTXT={
+ cls:{c:'🏷️ One word for the whole photo: "person". But where?',o:'<b>Output shape:</b> one score per class, e.g. 10 numbers for CIFAR-10, 1,000 for ImageNet. Softmax + argmax → one class.'},
+ det:{c:'📦 A box around each thing. Boxes also catch road and sky.',o:'<b>Output shape:</b> a list of N boxes, each <code>[x1, y1, x2, y2]</code> + class + confidence. N changes per picture (Faster R-CNN, YOLO).'},
+ sem:{c:'🎨 Every pixel gets a class colour. Both people get the same pink.',o:'<b>Output shape:</b> C × H × W scores, then argmax per pixel → an H × W map of class ids. Here 5 × 240 × 320 → 240 × 320 numbers.'},
+ ins:{c:'🧩 Every object gets its own colour. Now you can count people.',o:'<b>Output shape:</b> N objects, each with an H × W mask + class + confidence (Mask R-CNN = detection + a small mask per box). Road and sky are usually left out.'}};
+function legendHTML(ids,extra=''){return ids.map(c=>`<span><i style="background:${css(COL[c])}"></i>${c} = ${EMO[c]} ${NAMES[c]}</span>`).join('')+extra;}
+function chip(ctx,x,y,txt,col,k){ctx.font=`600 ${Math.max(11,12*k)}px Segoe UI, sans-serif`;const w=ctx.measureText(txt).width+10,h=Math.max(15,17*k);
+  ctx.fillStyle=col;ctx.fillRect(x,y-h,w,h);ctx.fillStyle='#fff';ctx.textAlign='left';ctx.fillText(txt,x+5,y-h*.28);}
+function drawTask(){const {ctx,w,h}=setupCanvas($('#taskc')),k=w/LW,t=TASK.cur;ctx.imageSmoothingEnabled=true;ctx.drawImage(photo,0,0,w,h);
+  if(t==='cls'){ctx.fillStyle='rgba(255,255,255,.85)';const bw=Math.min(w-16,190*k+20),bh=Math.max(34,38*k);ctx.fillRect(8,8,bw,bh);ctx.strokeStyle='#2f6fed';ctx.lineWidth=2;ctx.strokeRect(8,8,bw,bh);
+    ctx.fillStyle='#1c2230';ctx.font=`700 ${Math.max(14,18*k)}px Segoe UI, sans-serif`;ctx.textAlign='left';ctx.fillText('🏷️ "person"',18,8+bh*.68);}
+  if(t==='det'){for(const [key,lab,col] of [['p1','person',COL[1]],['p2','person',COL[1]],['car','car',COL[2]],['tree','tree',COL[4]]]){const b=BOX[key];
+      ctx.strokeStyle=css(col);ctx.lineWidth=2.5;ctx.strokeRect(b[0]*k,b[1]*k,(b[2]-b[0])*k,(b[3]-b[1])*k);chip(ctx,b[0]*k,b[1]*k,lab,css(col),k);}}
+  if(t==='sem'){ctx.globalAlpha=.62;ctx.drawImage(semC,0,0,w,h);ctx.globalAlpha=1;}
+  if(t==='ins'){ctx.fillStyle='rgba(255,255,255,.45)';ctx.fillRect(0,0,w,h);ctx.globalAlpha=.75;ctx.drawImage(insC,0,0,w,h);ctx.globalAlpha=1;
+    chip(ctx,BOX.p1[0]*k,BOX.p1[1]*k,'person #1','#d6336c',k);chip(ctx,BOX.p2[0]*k+14*k,BOX.p2[1]*k-2,'person #2','#f08c00',k);chip(ctx,BOX.car[0]*k,BOX.car[1]*k,'car #1','#2f6fed',k);}
+  $('#taskCap').textContent=TASKTXT[t].c;put($('#taskOut'),TASKTXT[t].o);
+  put($('#taskLegend'),t==='sem'?legendHTML([0,1,2,3,4]):t==='ins'?'<span><i style="background:#d6336c"></i>person #1</span><span><i style="background:#f08c00"></i>person #2</span><span><i style="background:#2f6fed"></i>car #1</span>':'');}
+function setTask(t){TASK.cur=t;document.querySelectorAll('#taskSeg button').forEach(x=>x.classList.toggle('on',x.dataset.t===t));drawTask();}
+function taskStop(){if(TASK.timer){clearInterval(TASK.timer);TASK.timer=null;$('#taskPlay').textContent='▶ Play all';}}
+document.querySelectorAll('#taskSeg button').forEach(b=>b.onclick=()=>{taskStop();setTask(b.dataset.t);});
+$('#taskPlay').onclick=()=>{if(TASK.timer){taskStop();return;}const order=['cls','det','sem','ins'];let i=0;setTask(order[0]);$('#taskPlay').textContent='⏸ Pause';
+  TASK.timer=setInterval(()=>{i++;if(i>=order.length){taskStop();return;}setTask(order[i]);},2600);};
+
+// ================= ② the mask is numbers =================
+const G={n:32,cell:[15,4],cache:{}};
+function lowres(n){if(G.cache[n])return G.cache[n];const m=n*3/4,sm=document.createElement('canvas');sm.width=n;sm.height=m;
+  const c=sm.getContext('2d');c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';
+  // shrink in halves for a fair colour average
+  let src=photo,sw=RW,sh=RH;while(sw/2>=n){const t=document.createElement('canvas');t.width=sw/2;t.height=sh/2;const tc=t.getContext('2d');tc.imageSmoothingQuality='high';tc.drawImage(src,0,0,sw/2,sh/2);src=t;sw/=2;sh/=2;}
+  c.drawImage(src,0,0,n,m);const cls=new Uint8Array(n*m),mk=document.createElement('canvas');mk.width=n;mk.height=m;const id=new ImageData(n,m);
+  for(let j=0;j<m;j++)for(let i=0;i<n;i++){const px=Math.floor((i+.5)*RW/n),py=Math.floor((j+.5)*RH/m),v=CLS[py*RW+px],q=4*(j*n+i);cls[j*n+i]=v;
+    id.data[q]=COL[v][0];id.data[q+1]=COL[v][1];id.data[q+2]=COL[v][2];id.data[q+3]=255;}
+  mk.getContext('2d').putImageData(id,0,0);return G.cache[n]={sm,mk,cls,m};}
+function drawGrid(){const n=G.n,L=lowres(n),m=L.m,op=+$('#op').value/100;$('#opOut').textContent=Math.round(op*100)+'%';
+  const [ci,cj]=G.cell;
+  {const {ctx,w,h}=setupCanvas($('#gridPhoto')),cw=w/n,chh=h/m;ctx.imageSmoothingEnabled=false;ctx.drawImage(L.sm,0,0,w,h);ctx.globalAlpha=op;ctx.drawImage(L.mk,0,0,w,h);ctx.globalAlpha=1;
+    if(cw>=7){ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1;ctx.beginPath();for(let i=1;i<n;i++){ctx.moveTo(i*cw,0);ctx.lineTo(i*cw,h);}for(let j=1;j<m;j++){ctx.moveTo(0,j*chh);ctx.lineTo(w,j*chh);}ctx.stroke();}
+    ctx.strokeStyle='#ffd43b';ctx.lineWidth=3;ctx.strokeRect(ci*cw,cj*chh,cw,chh);ctx.strokeStyle='#1c2230';ctx.lineWidth=1;ctx.strokeRect(ci*cw-2,cj*chh-2,cw+4,chh+4);}
+  {const {ctx,w,h}=setupCanvas($('#gridNum')),cw=w/n,chh=h/m;ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);const fs=Math.min(cw*.62,15);
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`600 ${fs}px Consolas, monospace`;
+    for(let j=0;j<m;j++)for(let i=0;i<n;i++){const v=L.cls[j*n+i],c=COL[v];ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${v?0.42:0.14})`;ctx.fillRect(i*cw,j*chh,cw+.5,chh+.5);
+      if(fs>=6.5){ctx.fillStyle=v?'#1c2230':'#868e96';ctx.fillText(v,i*cw+cw/2,j*chh+chh/2+.5);}}
+    ctx.strokeStyle='#ffd43b';ctx.lineWidth=3;ctx.strokeRect(ci*cw,cj*chh,cw,chh);ctx.strokeStyle='#1c2230';ctx.lineWidth=1;ctx.strokeRect(ci*cw-2,cj*chh-2,cw+4,chh+4);
+    if(fs<6.5){ctx.fillStyle='rgba(255,255,255,.85)';ctx.fillRect(4,h-22,w-8,18);ctx.fillStyle='#5d6678';ctx.font='11px Segoe UI, sans-serif';ctx.fillText('too small to print: each colour = one number',w/2,h-13);}}
+  const v=L.cls[cj*n+ci];put($('#pixInfo'),`<span class="num" style="color:${css(COL[v])}">${v}</span><span>= ${EMO[v]} ${NAMES[v]}</span>`);
+  $('#pixInfo').style.borderColor=css(COL[v]);
+  const cnt=[0,0,0,0,0];for(const x of L.cls)cnt[x]++;const N=n*m;
+  put($('#pixCount'),`This mask = ${n} × ${m} = <b>${N.toLocaleString()}</b> numbers. `+cnt.map((c,i)=>`${EMO[i]} ${i}: ${Math.round(c/N*100)}%`).join(' · '));}
+function gridPointer(e){const cv=e.currentTarget,r=cv.getBoundingClientRect(),n=G.n,m=n*3/4;
+  const i=clamp(Math.floor((e.clientX-r.left)/r.width*n),0,n-1),j=clamp(Math.floor((e.clientY-r.top)/r.height*m),0,m-1);if(i!==G.cell[0]||j!==G.cell[1]){G.cell=[i,j];drawGrid();}}
+['#gridPhoto','#gridNum'].forEach(id=>{$(id).addEventListener('pointermove',gridPointer);$(id).addEventListener('pointerdown',gridPointer);});
+$('#op').addEventListener('input',drawGrid);
+document.querySelectorAll('#gridBtns [data-n]').forEach(b=>b.onclick=()=>{const old=G.n,n=+b.dataset.n;G.cell=[Math.floor(G.cell[0]*n/old),Math.floor(G.cell[1]*n/old)];G.n=n;
+  document.querySelectorAll('#gridBtns [data-n]').forEach(x=>x.classList.toggle('on',x===b));drawGrid();});
+put($('#gridLegend'),legendHTML([0,1,2,3,4]));
+
+// ================= ③ U-Net =================
+const N=128,CX0=20,CW=240;   // square crop of the scene: logical x 20..260
+const M128=new Float32Array(N*N),GRAY=new Float32Array(N*N);
+(function(){const pd=photo.getContext('2d').getImageData(0,0,RW,RH).data;
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){const px=Math.floor((CX0+(i+.5)*CW/N)*R),py=Math.floor((j+.5)*CW/N*R),k=py*RW+px;M128[j*N+i]=CLS[k]===1?1:0;
+    GRAY[j*N+i]=(pd[4*k]*.3+pd[4*k+1]*.59+pd[4*k+2]*.11)/255;}})();
+function pool(a,n,f){const m=n/f,o=new Float32Array(m*m);for(let j=0;j<n;j++)for(let i=0;i<n;i++)o[Math.floor(j/f)*m+Math.floor(i/f)]+=a[j*n+i]/(f*f);return o;}
+function up(a,n,to){const o=new Float32Array(to*to),s=n/to;for(let j=0;j<to;j++)for(let i=0;i<to;i++){const x=clamp((i+.5)*s-.5,0,n-1),y=clamp((j+.5)*s-.5,0,n-1),x0=Math.floor(x),y0=Math.floor(y),x1=Math.min(n-1,x0+1),y1=Math.min(n-1,y0+1),fx=x-x0,fy=y-y0;
+  o[j*to+i]=a[y0*n+x0]*(1-fx)*(1-fy)+a[y0*n+x1]*fx*(1-fy)+a[y1*n+x0]*(1-fx)*fy+a[y1*n+x1]*fx*fy;}return o;}
+function norm(a){let mx=1e-9;for(const v of a)mx=Math.max(mx,v);return a.map(v=>v/mx);}
+function blur(a,n,r){let o=a;for(let pass=0;pass<2;pass++){const t=new Float32Array(n*n);for(let j=0;j<n;j++)for(let i=0;i<n;i++){let s=0,c=0;for(let d=-r;d<=r;d++){const ii=i+d;if(ii>=0&&ii<n){s+=o[j*n+ii];c++;}}t[j*n+i]=s/c;}
+  const u=new Float32Array(n*n);for(let j=0;j<n;j++)for(let i=0;i<n;i++){let s=0,c=0;for(let d=-r;d<=r;d++){const jj=j+d;if(jj>=0&&jj<n){s+=t[jj*n+i];c++;}}u[j*n+i]=s/c;}o=u;}return o;}
+const EDGE=(()=>{const e=new Float32Array(N*N);for(let j=1;j<N-1;j++)for(let i=1;i<N-1;i++){const g=(a,b)=>GRAY[(j+b)*N+i+a];
+  const gx=g(1,-1)+2*g(1,0)+g(1,1)-g(-1,-1)-2*g(-1,0)-g(-1,1),gy=g(-1,1)+2*g(0,1)+g(1,1)-g(-1,-1)-2*g(0,-1)-g(1,-1);e[j*N+i]=Math.hypot(gx,gy);}return norm(e.map(v=>Math.min(v,1.2)));})();
+const P2=pool(M128,N,2),E4=pool(EDGE,N,4);
+const MAPS={e1:EDGE,e2:norm(pool(EDGE,N,2).map((v,k)=>v*.55+P2[k]*.6)),e3:norm(pool(blur(M128,N,2),N,4).map((v,k)=>v+.25*E4[k])),b:norm(pool(M128,N,8))};
+const BLOB=norm(blur(up(MAPS.b,16,N),N,3));
+const NOSKIP={32:up(MAPS.b,16,32),64:up(MAPS.b,16,64),128:BLOB};
+const SKIP={32:pool(M128,N,4),64:P2,128:up(P2,64,N)};
+const FINAL={skip:SKIP[128].map(v=>v>=.5?1:0),noskip:BLOB.map(v=>v>=.38?1:0)};
+function cmHeat(v){return [255-(255-88)*v,255-(255-50)*v,255-(255-200)*v];}
+function cmEdge(v){const g=255-215*v;return [g,g,g];}
+const mcache=new Map();
+function mapCanvas(key,a,n,cm){if(mcache.has(key))return mcache.get(key);const c=document.createElement('canvas');c.width=n;c.height=n;const id=new ImageData(n,n);
+  for(let k=0;k<n*n;k++){const col=cm(clamp(a[k],0,1));id.data[4*k]=col[0];id.data[4*k+1]=col[1];id.data[4*k+2]=col[2];id.data[4*k+3]=255;}c.getContext('2d').putImageData(id,0,0);mcache.set(key,c);return c;}
+function maskCanvas(key,mask,err){if(mcache.has(key))return mcache.get(key);const c=document.createElement('canvas');c.width=N;c.height=N;const id=new ImageData(N,N);
+  for(let k=0;k<N*N;k++){let col=mask[k]?[214,51,108]:[236,238,242];if(err&&mask[k]!==M128[k])col=[240,140,0];id.data[4*k]=col[0];id.data[4*k+1]=col[1];id.data[4*k+2]=col[2];id.data[4*k+3]=255;}
+  c.getContext('2d').putImageData(id,0,0);mcache.set(key,c);return c;}
+const UCOLS=[{lv:0,sz:'128²',ch:'3 ch'},{lv:0,sz:'128²',ch:'16 ch'},{lv:1,sz:'64²',ch:'32 ch'},{lv:2,sz:'32²',ch:'64 ch'},{lv:3,sz:'16²',ch:'128 ch'},{lv:2,sz:'32²',ch:'64 ch'},{lv:1,sz:'64²',ch:'32 ch'},{lv:0,sz:'128²',ch:'16 ch'},{lv:0,sz:'128²',ch:'2 ch'}];
+const REVEAL=[0,1,2,2,3,4,4,4,6],STACK=[0,2,3,4,5,4,3,2,0];
+const HL=[[0],[1],[2,3],[4],[5,6,7],[5,6,7],[8],[8],[8]];
+const U={step:0,timer:null};
+function wrongCount(){const f=skipsOn()?FINAL.skip:FINAL.noskip;let c=0;for(let k=0;k<N*N;k++)if(f[k]!==M128[k])c++;return c;}
+U.cut=false;U.step=7;
+const skipsOn=()=>!U.cut;
+const USTEPS=[
+ ()=>`📷 A photo goes in: 128 × 128 pixels.<span class="adv small muted"> Tensor shape [1, 3, 128, 128].</span>`,
+ ()=>`🔽 The first layer finds edges.<span class="adv small muted"> 16 feature maps, shape [1, 16, 128, 128] (Lesson 10).</span>`,
+ ()=>`🔽 Shrink, shrink: each square now sees a bigger patch.<span class="adv small muted"> Each block halves the size (pooling) and doubles the channels: 64² × 32, 32² × 64.</span>`,
+ ()=>`🧠 The tiny middle knows WHAT (a person), but forgot exactly WHERE.<span class="adv small muted"> Bottleneck 16 × 16 × 128: one cell covers 8 × 8 pixels. This part can be a pretrained backbone.</span>`,
+ ()=>`🔼 Grow it back… but on its own, it's a blurry blob.<span class="adv small muted"> Bilinear upsampling or nn.ConvTranspose2d (stride 2): 16 → 32 → 64 → 128.</span>`,
+ ()=>skipsOn()?`🌉 Bridges copy the sharp details across. Edges come back!<span class="adv small muted"> torch.cat([up, skip], dim=1), then a conv block mixes them.</span>`
+   :`✂️ No bridges: the legs melt together. Press the button again to fix it.`,
+ ()=>`🎯 Every pixel gets two scores: person (top) or background (bottom).<span class="adv small muted"> 1 × 1 conv → logits [1, 2, 128, 128]; softmax per pixel.</span>`,
+ ()=>`✅ Pick the bigger score for each pixel = the mask.<span class="adv small muted"> argmax(dim=1) → [128, 128] class numbers.</span>`,
+ ()=>`📏 <span style="color:#f08c00">Orange</span> = wrong pixels: ${wrongCount().toLocaleString()} of 16,384. Training shrinks this.<span class="adv small muted"> Loss = cross-entropy of every pixel, averaged; then backprop + gradient descent.</span>`];
+function drawUnet(){const cv=$('#unetc'),w0=cv.getBoundingClientRect().width,colW=w0/9,base=clamp(colW-10,24,72),SC=[1,.8,.62,.46];
+  const y0=18+base/2,dy=base*.55+36,H=Math.round(y0+3*dy+base*SC[3]/2+56);cv.style.height=H+'px';
+  const {ctx,w}=setupCanvas(cv),s=U.step,sk=skipsOn();ctx.clearRect(0,0,w,H);ctx.imageSmoothingEnabled=false;
+  const X=k=>(k+.5)*colW,Y=lv=>y0+lv*dy,S=k=>base*SC[UCOLS[k].lv];
+  const vis=k=>REVEAL[k]<=s;
+  ctx.font='700 12px Segoe UI, sans-serif';ctx.textAlign='center';ctx.fillStyle='#2f6fed';ctx.fillText('🔽 ENCODER: what',X(2),H-8);ctx.fillStyle='#2f9e44';ctx.fillText('DECODER: where 🔼',X(6.2),H-8);
+  for(let k=0;k<8;k++){if(!vis(k+1))continue;const a=UCOLS[k],b=UCOLS[k+1],x1=X(k)+S(k)/2+2,y1=Y(a.lv),x2=X(k+1)-S(k+1)/2-6,y2=Y(b.lv);
+    ctx.strokeStyle=k<4?'#2f6fed':'#2f9e44';ctx.fillStyle=ctx.strokeStyle;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    const an=Math.atan2(y2-y1,x2-x1);ctx.beginPath();ctx.moveTo(x2+4*Math.cos(an),y2+4*Math.sin(an));ctx.lineTo(x2-5*Math.cos(an-.5),y2-5*Math.sin(an-.5));ctx.lineTo(x2-5*Math.cos(an+.5),y2-5*Math.sin(an+.5));ctx.fill();}
+  if(s>=5)for(const [a,b] of [[1,7],[2,6],[3,5]]){const lv=UCOLS[a].lv,y=Y(lv)-S(a)*.3,x1=X(a)+S(a)/2+3,x2=X(b)-S(b)/2-3;
+    ctx.save();ctx.setLineDash(sk?[6,4]:[3,4]);ctx.strokeStyle=sk?'#f08c00':'#ced4da';ctx.lineWidth=sk?2.5:2;ctx.beginPath();ctx.moveTo(x1,y);ctx.lineTo(x2,y);ctx.stroke();ctx.restore();
+    if(sk){ctx.fillStyle='#f08c00';ctx.beginPath();ctx.moveTo(x2+3,y);ctx.lineTo(x2-5,y-4);ctx.lineTo(x2-5,y+4);ctx.fill();ctx.font='14px Segoe UI, sans-serif';ctx.textAlign='center';ctx.fillText('🌉',(x1+x2)/2,y-5);}
+    else{ctx.font='14px Segoe UI, sans-serif';ctx.textAlign='center';ctx.fillText('✂️',(x1+x2)/2,y+5);}}
+  for(let k=0;k<9;k++){const c=UCOLS[k],x=X(k),y=Y(c.lv),sz=S(k),l=x-sz/2,t=y-sz/2;
+    if(!vis(k)){ctx.strokeStyle='#e2e4e9';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.strokeRect(l,t,sz,sz);ctx.setLineDash([]);continue;}
+    for(let q=STACK[k];q>=1;q--){const o=q*Math.max(2,base/22);ctx.fillStyle='#f1f3f7';ctx.strokeStyle='#adb5bd';ctx.lineWidth=1;ctx.fillRect(l+o,t-o,sz,sz);ctx.strokeRect(l+o,t-o,sz,sz);}
+    let img=null;
+    if(k===0){ctx.imageSmoothingEnabled=true;ctx.drawImage(photo,CX0*R,0,CW*R,CW*R,l,t,sz,sz);ctx.imageSmoothingEnabled=false;}
+    else if(k===1)img=mapCanvas('e1',MAPS.e1,128,cmEdge);
+    else if(k===2)img=mapCanvas('e2',MAPS.e2,64,cmHeat);
+    else if(k===3)img=mapCanvas('e3',MAPS.e3,32,cmHeat);
+    else if(k===4)img=mapCanvas('b',MAPS.b,16,cmHeat);
+    else if(k<8){const r=[0,0,0,0,0,32,64,128][k],sharp=s>=5&&sk;img=mapCanvas((sharp?'s':'n')+r,sharp?SKIP[r]:NOSKIP[r],r,cmHeat);}
+    if(k===8){const fin=sk?FINAL.skip:FINAL.noskip,dm=sk?SKIP[128]:BLOB;
+      if(s===6){const hs=sz/2-1;ctx.drawImage(mapCanvas('sp'+sk,dm,128,cmHeat),l,t,sz,hs);ctx.drawImage(mapCanvas('sb'+sk,dm.map(v=>1-v),128,cmHeat),l,t+hs+2,sz,hs);}
+      else ctx.drawImage(maskCanvas('m'+sk+(s>=8),fin,s>=8),l,t,sz,sz);}
+    if(img)ctx.drawImage(img,l,t,sz,sz);
+    const on=HL[s].includes(k);ctx.strokeStyle=on?'#2f6fed':'#adb5bd';ctx.lineWidth=on?3:1;ctx.strokeRect(l,t,sz,sz);
+    ctx.fillStyle=on?'#1c2230':'#5d6678';ctx.font=`${on?700:600} 10.5px Segoe UI, sans-serif`;ctx.textAlign='center';
+    ctx.fillText(k===0?'photo':k===8?(s===6?'scores':'mask'):c.sz,x,t+sz+12);ctx.font='10px Segoe UI, sans-serif';ctx.fillStyle='#868e96';ctx.fillText(k===0||k===8?c.sz:c.ch,x,t+sz+23);}
+  put($('#uExplain'),USTEPS[s]());$('#uStepNo').textContent=`Step ${s+1} / ${USTEPS.length}`;$('#uBack').disabled=s===0;$('#uNext').disabled=s===USTEPS.length-1;
+  const cb=$('#uCut');cb.classList.toggle('cut',U.cut);cb.textContent=U.cut?'🌉 Put the bridges back':'✂️ Cut the bridges';}
+function drawTrio(){const cfg=[['#tTrue',M128],['#tSkip',FINAL.skip],['#tNoSkip',FINAL.noskip]];
+  for(const [id,m] of cfg){const {ctx,w,h}=setupCanvas($(id));ctx.imageSmoothingEnabled=true;ctx.drawImage(photo,CX0*R,0,CW*R,CW*R,0,0,w,h);ctx.fillStyle='rgba(255,255,255,.55)';ctx.fillRect(0,0,w,h);
+    const c=document.createElement('canvas');c.width=N;c.height=N;const id2=new ImageData(N,N);for(let k=0;k<N*N;k++)if(m[k]){id2.data[4*k]=214;id2.data[4*k+1]=51;id2.data[4*k+2]=108;id2.data[4*k+3]=235;}
+    c.getContext('2d').putImageData(id2,0,0);ctx.imageSmoothingEnabled=false;ctx.drawImage(c,0,0,w,h);}}
+function uStop(){if(U.timer){clearInterval(U.timer);U.timer=null;$('#uPlay').textContent='▶ Play all';}}
+$('#uNext').onclick=()=>{uStop();U.step=Math.min(USTEPS.length-1,U.step+1);drawUnet();};
+$('#uBack').onclick=()=>{uStop();U.step=Math.max(0,U.step-1);drawUnet();};
+$('#uPlay').onclick=()=>{if(U.timer){uStop();return;}U.step=0;drawUnet();$('#uPlay').textContent='⏸ Pause';
+  U.timer=setInterval(()=>{if(U.step>=USTEPS.length-1){uStop();return;}U.step++;drawUnet();},2600);};
+$('#uCut').onclick=()=>{U.cut=!U.cut;if(U.cut&&U.step<5){uStop();U.step=5;}drawUnet();};
+
+// ================= ④ IoU playground =================
+const TRUEP=new Uint8Array(LW*LH);
+const PB=[BOX.p1,BOX.p2],UB=[Math.min(BOX.p1[0],BOX.p2[0]),Math.min(BOX.p1[1],BOX.p2[1]),Math.max(BOX.p1[2],BOX.p2[2]),Math.max(BOX.p1[3],BOX.p2[3])];
+const UCX=(UB[0]+UB[2])/2,UCY=(UB[1]+UB[3])/2;
+const isPerson=(x,y)=>PEOPLE.some(p=>personPart(x,y,p)!==null);
+for(let j=0;j<LH;j++)for(let i=0;i<LW;i++)TRUEP[j*LW+i]=isPerson(i+.5,j+.5)?1:0;
+const iouC=document.createElement('canvas');iouC.width=LW;iouC.height=LH;
+function predAt(shape,x,y){if(shape==='none')return 0;if(shape==='all')return 1;
+  if(shape==='exact')return isPerson(x,y)?1:0;
+  for(const b of PB){const cx=(b[0]+b[2])/2,cy=(b[1]+b[3])/2,rx=(b[2]-b[0])/2,ry=(b[3]-b[1])/2;
+    if(shape==='box'){if(Math.abs(x-cx)<=rx&&Math.abs(y-cy)<=ry)return 1;}
+    else if(((x-cx)/(rx*.8))**2+((y-cy)/(ry*.97))**2<=1)return 1;}
+  return 0;}
+function drawIoU(){const shape=$('#pShape').value,dx=+$('#sx').value,dy=+$('#sy').value,sc=+$('#sz').value/100;
+  $('#sxOut').textContent=dx;$('#syOut').textContent=dy;$('#szOut').textContent=Math.round(sc*100)+'%';
+  const id=new ImageData(LW,LH);let tp=0,fp=0,fn=0,tn=0;
+  for(let j=0;j<LH;j++)for(let i=0;i<LW;i++){const x=UCX+(i+.5-UCX-dx)/sc,y=UCY+(j+.5-UCY-dy)/sc,p=predAt(shape,x,y),t=TRUEP[j*LW+i],q=4*(j*LW+i);let c;
+    if(p&&t){tp++;c=[47,158,68,215];}else if(p){fp++;c=[224,49,49,190];}else if(t){fn++;c=[47,111,237,215];}else{tn++;c=[255,255,255,120];}
+    id.data[q]=c[0];id.data[q+1]=c[1];id.data[q+2]=c[2];id.data[q+3]=c[3];}
+  iouC.getContext('2d').putImageData(id,0,0);
+  const {ctx,w,h}=setupCanvas($('#iouc'));ctx.imageSmoothingEnabled=true;ctx.drawImage(photo,0,0,w,h);ctx.imageSmoothingEnabled=false;ctx.drawImage(iouC,0,0,w,h);
+  const Nn=LW*LH,iou=tp/(tp+fp+fn),dice=2*tp/(2*tp+fp+fn),acc=(tp+tn)/Nn,biou=tn/(tn+fp+fn||1);
+  $('#sIoU').textContent=iou.toFixed(2);$('#sDice').textContent=dice.toFixed(2);$('#sAcc').textContent=pct(acc);$('#sMIoU').textContent=((iou+biou)/2).toFixed(2);
+  $('#iouMark').style.left=(clamp(iou,.02,.98)*100)+'%';
+  $('#sCounts').textContent=`TP ${tp.toLocaleString()} · FP ${fp.toLocaleString()} · FN ${fn.toLocaleString()} · TN ${tn.toLocaleString()} (of ${Nn.toLocaleString()} pixels). Background IoU = ${biou.toFixed(2)}.`;
+  const v=$('#iouVerdict');let cls,txt;
+  if(shape==='none'){cls='bad';txt=`🚫 Accuracy ${pct(acc)}, but it found nobody. IoU = 0. Accuracy lies!`;}
+  else if(shape==='all'){cls='bad';txt=`🟥 Finds every person, but marks everything else too. IoU ${iou.toFixed(2)}.`;}
+  else if(iou>=.9){cls='good';txt=`🌟 Excellent match.`;}
+  else if(iou>=.75){cls='good';txt=`✅ Good mask.`;}
+  else if(iou>=.5){cls='info';txt=`➖ Okay: people found, edges rough.`;}
+  else {cls='bad';txt=`❌ Poor mask, even though accuracy says ${pct(acc)}.`;}
+  v.className='banner '+cls;v.textContent=txt;}
+const PRE={perfect:['exact',0,0,100],blob:['blob',0,0,100],none:['none',0,0,100],all:['all',0,0,100]};
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{const p=PRE[b.dataset.p];$('#pShape').value=p[0];$('#sx').value=p[1];$('#sy').value=p[2];$('#sz').value=p[3];
+  document.querySelectorAll('[data-p]').forEach(x=>x.classList.toggle('on',x===b));drawIoU();});
+['#pShape','#sx','#sy','#sz'].forEach(id=>$(id).addEventListener('input',drawIoU));
+$('#pShape').addEventListener('input',()=>document.querySelectorAll('[data-p]').forEach(x=>x.classList.remove('on')));
+
+// ================= ⑤ flip demo =================
+const FL={mode:'orig'};
+function drawFlip(){const {ctx,w,h}=setupCanvas($('#flipc')),m=FL.mode;ctx.imageSmoothingEnabled=true;
+  const draw=(src,flip,alpha)=>{ctx.save();ctx.globalAlpha=alpha;if(flip){ctx.translate(w,0);ctx.scale(-1,1);}ctx.drawImage(src,0,0,w,h);ctx.restore();};
+  draw(photo,m!=='orig',1);ctx.fillStyle='rgba(255,255,255,.25)';ctx.fillRect(0,0,w,h);draw(perC,m==='both',.7);
+  ctx.font='600 12px Segoe UI, sans-serif';ctx.textAlign='left';ctx.fillStyle='rgba(28,34,48,.75)';ctx.fillRect(6,6,Math.min(w-12,250),20);ctx.fillStyle='#fff';
+  ctx.fillText(m==='orig'?'photo: original · mask: original':m==='both'?'photo: flipped · mask: flipped':'photo: flipped · mask: NOT flipped',12,20);
+  let agree=0,tot=0;for(let j=0;j<RH;j+=2)for(let i=0;i<RW;i+=2){if(CLS[j*RW+i]!==1)continue;tot++;if(CLS[j*RW+(RW-1-i)]===1)agree++;}
+  const msg=$('#flipMsg');if(m==='img'){msg.className='banner bad narrow';msg.textContent=`⚠️ Bug! Only ${Math.round(agree/tot*100)}% of the pink mask is still on a person.`;}
+  else{msg.className='banner good narrow';msg.textContent=m==='both'?'✅ Still correct, and a new training photo for free.':'✅ Photo and mask match.';}
+  ['#fOrig','#fBoth','#fImg'].forEach((id,k)=>{const on=['orig','both','img'][k]===m,b=$(id);b.classList.toggle('primary',on&&k<2);b.classList.toggle('warn',on&&k===2);});}
+$('#fOrig').onclick=()=>{FL.mode='orig';drawFlip();};$('#fBoth').onclick=()=>{FL.mode='both';drawFlip();};$('#fImg').onclick=()=>{FL.mode='img';drawFlip();};
+
+function drawAll(){drawTask();drawGrid();drawUnet();drawTrio();drawIoU();drawFlip();}
+window.addEventListener('resize',drawAll);
+drawAll();
+</script>
+<script>
+/* Simple / Detailed switch: simple view hides code and trainer notes (class "adv"). Remembered per browser. */
+(function(){var b=document.getElementById('modeBtn'),m='simple';try{m=localStorage.getItem('tv-mode')||'simple';}catch(e){}
+function set(s){document.body.classList.toggle('simple',s);b.textContent=s?'👶 Simple view (click for details)':'🎓 Detailed view (click to simplify)';}
+set(m==='simple');b.onclick=function(){var s=!document.body.classList.contains('simple');set(s);try{localStorage.setItem('tv-mode',s?'simple':'detailed');}catch(e){}window.dispatchEvent(new Event('resize'));};})();
+</script>
+</body>
+</html>

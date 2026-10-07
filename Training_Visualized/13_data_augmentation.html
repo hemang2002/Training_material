@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>13 · Data augmentation — Training, Visualized</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .hero h1{font-size:clamp(2rem,5vw,3rem);letter-spacing:-.025em;line-height:1.08;margin-bottom:.3em}
+  .sub{color:var(--muted);font-size:1.1rem;margin:.2rem 0 .8rem}
+  .bigq{font-size:clamp(1.3rem,3vw,1.75rem);letter-spacing:-.015em;line-height:1.2;font-weight:700;margin:0 0 .6rem}
+  .pic{width:100%;aspect-ratio:1;display:block;border-radius:8px;border:1px solid var(--line);background:#000}
+  .chipsrow{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.8rem}
+  .wchip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:.3rem .8rem;font-size:.92rem}
+  .stepcap{font-size:1.15rem;font-weight:700;min-height:1.8rem;margin:.5rem .2rem .2rem}
+
+  /* hero analogy: one face, many views */
+  .analogy{background:#fff;border:1px solid var(--line);border-radius:18px;padding:1rem 1.2rem;box-shadow:var(--shadow);max-width:52rem}
+  .faces{display:grid;grid-template-columns:minmax(0,8rem) repeat(6,minmax(0,1fr));gap:.45rem;align-items:center}
+  .faces .lbl{font-size:.95rem;font-weight:700;line-height:1.2}
+  .faces .lbl small{display:block;font-weight:500;color:var(--muted);font-size:.78rem}
+  .face{aspect-ratio:1;background:#e7f5ff;border-radius:14px;display:grid;place-items:center;position:relative;overflow:hidden;font-size:clamp(1.4rem,4.2vw,2.5rem);line-height:1}
+  .face .e{display:inline-block}
+  .face.dark{background:#343a40}.face.dark .e{filter:brightness(.45)}
+  .face.tilt .e{transform:rotate(-38deg)}
+  .face.far .e{transform:scale(.45)}
+  .face.hat .h{position:absolute;top:4%;left:50%;transform:translateX(-50%);font-size:.72em}
+  .face.hat .e{margin-top:.35em}
+  .face.blur .e{filter:blur(2.5px)}
+  .fname{font-size:.75rem;color:var(--muted);text-align:center;font-weight:600}
+  .mk{text-align:center;font-size:clamp(1.1rem,3vw,1.5rem);opacity:0;transform:scale(.3);transition:opacity .35s,transform .45s cubic-bezier(.3,1.5,.5,1);transition-delay:calc(var(--d,0) * .18s)}
+  .analogy.go .mk{opacity:1;transform:none}
+  .analogy .tag{font-size:1.05rem;font-weight:700;color:var(--blue);text-align:center;margin-top:.7rem}
+  @media (max-width:560px){.faces{grid-template-columns:minmax(0,4.2rem) repeat(6,minmax(0,1fr));gap:.3rem}.faces .lbl small{display:none}.faces .lbl{font-size:.8rem}.fname{font-size:.62rem}}
+
+  /* ① epochs */
+  .flow{max-width:62rem;display:grid;grid-template-columns:minmax(0,9rem) 2.2rem minmax(0,1fr);gap:.6rem;align-items:center}
+  .disk{text-align:center;font-weight:700;font-size:.9rem}
+  .disk .pic{border:3px solid var(--blue);margin-bottom:.3rem}
+  .arrowbig{font-size:1.8rem;text-align:center;color:var(--muted)}
+  .lane2{display:grid;grid-template-columns:2.2rem minmax(0,1fr);gap:.5rem;align-items:center;margin:.3rem 0}
+  .lane2 .sym{font-size:1.6rem;text-align:center}
+  .minis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.35rem}
+  .minis figure{margin:0;min-width:0;transition:opacity .3s,transform .4s cubic-bezier(.3,1.4,.5,1)}
+  .minis figure.hid{opacity:.08;transform:scale(.8)}
+  .minis figcaption,.batch figcaption{font-size:.7rem;color:var(--muted);line-height:1.25;text-align:center;margin-top:.15rem;overflow-wrap:anywhere}
+  @media (max-width:640px){.flow{grid-template-columns:1fr}.disk{max-width:7rem;margin:0 auto}.arrowbig{transform:rotate(90deg)}}
+
+  /* ② playground */
+  body.simple .lab{grid-template-columns:1fr}
+  .batch{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.45rem}
+  @media (min-width:1000px){.batch{grid-template-columns:repeat(8,minmax(0,1fr))}}
+  .batch figure{margin:0;min-width:0}
+  .big3{display:flex;flex-wrap:wrap;gap:.5rem;margin:.2rem 0 .7rem}
+  .big3 .btn{font-size:1rem;padding:.55rem 1rem}
+  .big3 .btn.on,.chips .btn.on{border-color:var(--blue);background:#e7f0ff}
+  .big3 .btn.pulse{animation:pulse 1.4s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(47,111,237,.45)}50%{box-shadow:0 0 0 8px rgba(47,111,237,0)}}
+  .chips{display:flex;flex-wrap:wrap;gap:.4rem;margin:.3rem 0 .6rem}
+  .chips .btn{border-radius:999px;padding:.35rem .8rem}
+  .rowlbl{font-size:.82rem;font-weight:700;color:var(--muted);margin:1rem 0 .3rem;text-transform:uppercase;letter-spacing:.05em}
+
+  /* ③ good / bad */
+  .cases{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(45%,220px),1fr));gap:.7rem;margin:.6rem 0}
+  .case{border:2px solid var(--line);border-radius:14px;padding:.6rem .7rem;background:#fff;min-width:0}
+  .case h3{font-size:1rem;margin:0 0 .35rem}
+  .case .pair{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:.35rem;align-items:center}
+  .case .pair span{font-size:1.2rem;color:var(--muted)}
+  .case .q{font-size:.9rem;margin:.4rem 0 .2rem}
+  .case .btn-row{margin:.3rem 0 0}
+  .case .btn{font-size:.85rem;padding:.3rem .6rem}
+  .case .ans{font-size:.9rem;margin-top:.35rem;font-weight:600}
+  .case.good{border-color:#8ce99a;background:var(--good-bg)}
+  .case.bad{border-color:#ffa8a8;background:var(--bad-bg)}
+  .scorebox{display:inline-flex;align-items:baseline;gap:.5rem;background:#fff;border:1px solid var(--line);border-radius:14px;padding:.4rem .9rem}
+  .scorebox b{font:800 1.8rem/1 var(--sans);color:var(--blue);font-variant-numeric:tabular-nums}
+
+  /* ④ real results */
+  .res{display:flex;flex-direction:column;gap:.7rem;max-width:52rem;margin-top:.4rem}
+  .res .r{display:grid;grid-template-columns:minmax(0,12rem) minmax(0,1fr) 4.5rem;gap:.8rem;align-items:center}
+  .res .r .l b{display:block}
+  .res .r .l small{color:var(--muted)}
+  .res .bar{height:2.2rem;background:var(--soft);border-radius:10px;overflow:hidden}
+  .res .bar i{display:block;height:100%;border-radius:10px;width:0;transition:width 1.2s cubic-bezier(.2,.8,.2,1)}
+  .res .num{font:800 1.5rem/1 var(--sans);font-variant-numeric:tabular-nums;text-align:right}
+  @media (max-width:640px){.res .r{grid-template-columns:minmax(0,1fr) 4rem}.res .r .l{grid-column:1 / -1}}
+  .bignums{display:flex;flex-wrap:wrap;gap:.7rem;margin-top:.8rem;align-items:center}
+  .bignum{background:#fff;border:1px solid var(--line);border-radius:14px;padding:.5rem .9rem;text-align:center;min-width:8rem}
+  .bignum b{display:block;font:800 1.7rem/1.1 var(--sans);letter-spacing:-.02em}
+  .bignum span{font-size:.82rem;color:var(--muted)}
+  .verdict{font-size:1.1rem;font-weight:700;padding:.6rem .9rem;border-radius:12px;margin-top:.8rem}
+  .verdict.good{background:var(--good-bg);color:var(--green)}
+  .verdict.bad{background:var(--bad-bg);color:var(--red)}
+  .legend{display:flex;flex-wrap:wrap;gap:.9rem;font-size:.8rem;color:var(--muted);margin:.3rem}
+  .legend i{display:inline-block;width:.8rem;height:.8rem;border-radius:3px;margin-right:.3rem;vertical-align:-1px}
+
+  /* ⑤ rules */
+  .when{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:.8rem}
+  .wcard{background:#fff;border:1px solid var(--line);border-radius:16px;padding:.9rem 1rem;text-align:center}
+  .wcard .pic2{font-size:2.4rem;line-height:1.2}
+  .wcard .if{font-weight:700;margin:.3rem 0 .5rem}
+  .wcard .then{display:inline-block;font-weight:700;border-radius:999px;padding:.3rem .9rem;font-size:.9rem}
+
+  .tbl-wrap code{overflow-wrap:anywhere}
+  @media (max-width:600px){.tfs{font-size:.8rem}.tfs th,.tfs td{padding:.35rem .3rem}.tfs code{font-size:.78rem}}
+  @media (prefers-reduced-motion:reduce){.mk,.minis figure,.res .bar i{transition:none!important}.big3 .btn.pulse{animation:none}}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="topbar-in">
+  <a class="brand" href="index.html">🧠 Training, <span>Visualized</span></a>
+  <nav class="nav">
+    <a href="01_what_is_a_model.html" title="What is a model?">1</a>
+    <a href="02_gradient_descent.html" title="Gradient descent">2</a>
+    <a href="03_backpropagation.html" title="Backpropagation">3</a>
+    <a href="04_training_loop.html" title="The training loop">4</a>
+    <a href="05_activation_functions.html" title="Activation functions &amp; softmax">5</a>
+    <a href="06_neural_network_playground.html" title="Neural network playground">6</a>
+    <a href="07_overfitting.html" title="Overfitting">7</a>
+    <a href="08_dropout_batchnorm.html" title="Dropout &amp; BatchNorm">8</a>
+    <a href="09_metrics.html" title="Is it any good? Metrics">9</a>
+    <a href="10_cnn_convolution.html" title="How a CNN sees">10</a>
+    <a href="11_transfer_learning.html" title="Transfer learning">11</a>
+    <a href="12_quantization_pruning.html" title="Quantization &amp; pruning">12</a>
+    <a href="13_data_augmentation.html" class="on" title="Data augmentation">13</a>
+    <a href="14_image_segmentation.html" title="Image segmentation">14</a>
+    <a href="15a_text_to_numbers.html" title="Text to numbers">15a</a>
+    <a href="15_rnn_lstm.html" title="RNN &amp; LSTM">15</a>
+    <!-- <a href="16_reinforcement_learning.html" title="Reinforcement learning">16</a> -->
+  </nav>
+  <button class="modebtn" id="modeBtn" type="button">👶 Simple view</button>
+</div></header>
+
+<main class="wrap">
+<section class="hero">
+  <div class="kicker">Lesson 13 of 15 · ≈ 20 min</div>
+  <h1>Data augmentation: more pictures for free</h1>
+  <p class="sub">Show the model the same picture in many new ways.</p>
+  <div class="analogy" id="analogy">
+    <div class="faces">
+      <div></div>
+      <div class="face"><span class="e">🙂</span></div>
+      <div class="face dark"><span class="e">🙂</span></div>
+      <div class="face tilt"><span class="e">🙂</span></div>
+      <div class="face far"><span class="e">🙂</span></div>
+      <div class="face hat"><span class="h">🧢</span><span class="e">🙂</span></div>
+      <div class="face blur"><span class="e">🙂</span></div>
+      <div></div>
+      <div class="fname">normal</div><div class="fname">🌙 dark</div><div class="fname">🔄 tilted</div><div class="fname">🔍 far</div><div class="fname">🧢 hat</div><div class="fname">💧 blurry</div>
+      <div class="lbl">📷 1 photo<small>of a new friend</small></div>
+      <div class="mk" style="--d:0">✅</div><div class="mk" style="--d:1">❓</div><div class="mk" style="--d:2">❓</div><div class="mk" style="--d:3">❓</div><div class="mk" style="--d:4">❓</div><div class="mk" style="--d:5">❓</div>
+      <div class="lbl">📸 many days<small>sun, shade, hats…</small></div>
+      <div class="mk" style="--d:7">✅</div><div class="mk" style="--d:8">✅</div><div class="mk" style="--d:9">✅</div><div class="mk" style="--d:10">✅</div><div class="mk" style="--d:11">✅</div><div class="mk" style="--d:12">✅</div>
+    </div>
+    <div class="tag">Many views teach the face, not one photo. 🎲 Augmentation gives a model those "many days".</div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>① One photo, a new version every epoch</h2>
+  <p class="bigq">The photo on disk never changes. What the model sees does.</p>
+  <div class="flow">
+    <div class="disk"><canvas id="origc" class="pic" width="160" height="160"></canvas>💾 on disk</div>
+    <div class="arrowbig">➜</div>
+    <div>
+      <div class="lane2"><span class="sym" title="No augmentation">🚫</span><div class="minis" id="rowNone"></div></div>
+      <div class="lane2"><span class="sym" title="With augmentation">🎲</span><div class="minis" id="rowAug"></div></div>
+    </div>
+  </div>
+  <div class="btn-row"><button class="btn primary" id="play1">▶ Play 6 epochs</button><button class="btn" id="shuffle1">🎲 New dice</button></div>
+  <div class="stepcap" id="cap1">🚫 Same pixels every time → learned by heart. 🎲 A new cat every time → learns "cat".</div>
+  <div class="chipsrow">
+    <span class="wchip">🎲 <b>Augmentation</b> = a new random version of a photo</span>
+    <span class="wchip">🏷️ <b>Label</b> = the right answer ("cat")</span>
+    <span class="wchip">🔁 <b>Epoch</b> = one pass over all photos</span>
+    <span class="wchip">🤓 <b>Overfitting</b> = learning by heart</span>
+  </div>
+</section>
+
+<section class="card">
+  <h2>② Playground: bend the cat</h2>
+  <p class="bigq">Mix random changes. Would you still say "cat"?</p>
+  <div class="lab">
+    <aside class="controls adv" id="controls"></aside>
+    <div class="stage">
+      <div class="big3" id="presets">
+        <button class="btn" data-k="none">🚫 None</button><button class="btn" data-k="good">👍 Gentle</button><button class="btn pulse" data-k="strong">💥 Too strong</button>
+        <button class="btn primary" id="roll">🎲 Roll again</button>
+      </div>
+      <div class="batch" id="batch2"></div>
+
+      <div class="rowlbl">One change at a time 👇</div>
+      <div class="chips" id="chips"></div>
+      <div class="canvas-box"><div class="canvas-title" id="batchT"></div><div class="batch" id="batch"></div></div>
+      <div class="adv"><div class="canvas-title" style="margin-top:.6rem">The matching torchvision code (sizes for 32 × 32 CIFAR-10 pictures)</div><pre class="code" id="code"></pre></div>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>③ Good or bad? 🏷️ The label must stay true</h2>
+  <p class="bigq">After the change, is the answer still right?</p>
+  <div class="scorebox"><b id="score">0 / 0</b><span class="muted">your correct guesses</span></div>
+  <div class="cases" id="cases"></div>
+  <div class="btn-row"><button class="btn" id="revealAll">👀 Reveal all</button><button class="btn ghost" id="resetCases">↺ Start again</button></div>
+</section>
+
+<section class="card">
+  <h2>④ Does it really help? 🌍 Day 2 tried it</h2>
+  <p class="bigq">Same small CNN, 5,000 CIFAR-10 photos, three settings.</p>
+  <div class="big3" id="seg3">
+    <button class="btn" data-k="none">🚫 None</button><button class="btn pulse" data-k="good">👍 Gentle</button><button class="btn" data-k="strong">💥 Too strong</button>
+  </div>
+  <div class="res">
+    <div class="r"><div class="l"><b>📚 Practice photos</b><small>seen in training</small></div><div class="bar"><i id="bTr" style="background:var(--orange)"></i></div><div class="num" id="fTr">–</div></div>
+    <div class="r"><div class="l"><b>🆕 New photos</b><small>never seen: what counts</small></div><div class="bar"><i id="bTe" style="background:var(--blue)"></i></div><div class="num" id="fVa" style="color:var(--blue)">–</div></div>
+  </div>
+  <div class="bignums">
+    <div class="bignum"><b id="fGap">–</b><span>gap (practice − new)</span></div>
+    <div class="bignum" style="flex:1;min-width:min(100%,16rem);text-align:left"><span>👀 What the model practised on</span><div class="minis" id="rowChart" style="margin-top:.3rem;max-width:24rem"></div></div>
+  </div>
+  <div class="verdict" id="verdict"></div>
+  <p class="small muted">Real run from <code>Day2 / 05_data_augmentation.ipynb</code>. Your numbers will differ a little.</p>
+
+  <div class="adv" style="margin-top:1rem">
+    <div class="canvas-box"><div class="canvas-title">Typical shape over epochs (illustration, not the Day 2 numbers)</div><canvas id="chart" style="height:260px"></canvas>
+      <div class="legend"><span><i style="background:#f08c00"></i>training accuracy</span><span><i style="background:#2f6fed"></i>validation accuracy (new pictures)</span><span><i style="background:#ffc9c9"></i>gap</span><span>grey dashed = validation of the other two settings</span></div></div>
+    <p class="small">Day 2 table: no augmentation 98.0 % / 60.7 % (gap 37) · good 67.4 % / 64.4 % (best test 67.8 %, gap 3, still rising) · too strong 15.5 % / 22.4 % (underfitting; test is higher because test photos are clean).</p>
+  </div>
+</section>
+
+<section class="card">
+  <h2>⑤ Three rules</h2>
+  <div class="when">
+    <div class="wcard"><div class="pic2">🏋️📚</div><div class="if">Only change the practice photos</div><span class="then" style="background:#e7f0ff;color:var(--blue)">🆕 test photos stay clean</span></div>
+    <div class="wcard"><div class="pic2">🎲🔁</div><div class="if">New dice every epoch</div><span class="then" style="background:#fff4e6;color:#d9480f">💾 disk doesn't grow</span></div>
+    <div class="wcard"><div class="pic2">🏷️✅</div><div class="if">The label must stay true</div><span class="then" style="background:#ebfbee;color:var(--green)">🤔 think about your data</span></div>
+  </div>
+
+  <div class="adv">
+    <h3 style="margin-top:1rem">Common torchvision transforms</h3>
+    <div class="tbl-wrap"><table class="plain tfs">
+      <tr><th>Transform</th><th>What it does</th><th>Simulates</th><th>Careful when</th></tr>
+      <tr><td><code>RandomHorizontalFlip</code></td><td>mirror left ↔ right</td><td>object facing the other way</td><td>text, signs, left vs right hand</td></tr>
+      <tr><td><code>RandomVerticalFlip</code></td><td>upside down</td><td>satellite or microscope views</td><td>normal photos (the sky is up!), digits</td></tr>
+      <tr><td><code>RandomRotation</code></td><td>tilt by a random angle</td><td>camera held crooked</td><td>big angles, 6 vs 9</td></tr>
+      <tr><td><code>RandomResizedCrop</code></td><td>cut out a part, resize it</td><td>object closer, further, not centred</td><td>the crop can cut the object away</td></tr>
+      <tr><td><code>RandomAffine(translate=…)</code></td><td>shift</td><td>object not in the middle</td><td>object pushed out of the picture</td></tr>
+      <tr><td><code>ColorJitter</code></td><td>brightness, contrast, saturation, hue</td><td>different light, weather, cameras</td><td>colour <b>is</b> the class</td></tr>
+      <tr><td><code>GaussianBlur</code></td><td>soften</td><td>out of focus, motion</td><td>tiny details matter</td></tr>
+      <tr><td>noise (small custom transform)</td><td>random grain</td><td>dark photos, cheap sensors</td><td>too much hides the object</td></tr>
+      <tr><td><code>RandomErasing</code></td><td>grey box somewhere</td><td>something in front of the object</td><td>the box hides the whole object</td></tr>
+    </table></div>
+    <ul class="small" style="margin-top:.8rem">
+      <li><b>Validation / test:</b> only resize + normalise, so the score is measured on real pictures and is the same every run.</li>
+      <li><b>On the fly:</b> transforms run in <code>__getitem__</code>, so epoch 1 and epoch 2 see different versions. Files on disk don't change.</li>
+      <li><b>Start gentle.</b> Too strong = underfitting (training accuracy stays low). Biggest help when data is small.</li>
+      <li><b>Try in ②:</b> 👍 Gentle, then crop all the way up and rotation to 45°. Some crops lose the cat entirely: keep ≥ 60–80 % of the area, rotations ≈ 10–15°.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="card adv">
+  <h2>🐍 Train and test pipelines in PyTorch</h2>
+  <pre class="code"><span class="k">from</span> torchvision <span class="k">import</span> datasets, transforms
+mean, std = (<span class="n">0.4914</span>, <span class="n">0.4822</span>, <span class="n">0.4465</span>), (<span class="n">0.2470</span>, <span class="n">0.2435</span>, <span class="n">0.2616</span>)   <span class="c"># CIFAR-10</span>
+
+train_tf = transforms.Compose([
+    transforms.RandomCrop(<span class="n">32</span>, padding=<span class="n">4</span>),          <span class="c"># shift by up to 4 pixels</span>
+    transforms.RandomHorizontalFlip(),
+    transforms.ColorJitter(<span class="n">0.2</span>, <span class="n">0.2</span>, <span class="n">0.2</span>),
+    transforms.ToTensor(),
+    transforms.Normalize(mean, std),
+])
+test_tf = transforms.Compose([                        <span class="c"># NO random changes here</span>
+    transforms.ToTensor(),
+    transforms.Normalize(mean, std),
+])
+train_ds = datasets.CIFAR10(<span class="s">"data"</span>, train=<span class="k">True</span>,  transform=train_tf)   <span class="c"># still 50,000 files</span>
+test_ds  = datasets.CIFAR10(<span class="s">"data"</span>, train=<span class="k">False</span>, transform=test_tf)
+<span class="c"># train_tf runs inside __getitem__, so every epoch draws new random versions</span></pre>
+  <h3>🔮 Test-time augmentation (TTA)</h3>
+  <p class="small">For the <b>final prediction</b> only: predict on the picture and a few gentle versions (e.g. flipped), then average. A little more accuracy, several forward passes per picture.</p>
+  <pre class="code">probs = (model(x).softmax(<span class="n">1</span>) + model(x.flip(<span class="n">3</span>)).softmax(<span class="n">1</span>)) / <span class="n">2</span>   <span class="c"># original + horizontal flip</span></pre>
+  <p class="small muted">Later: <b>AutoAugment / RandAugment</b> (a learned or random list of transforms), <b>Mixup / CutMix</b> (blend two pictures and their labels).
+  In <code>RandomResizedCrop(scale=(a, 1))</code>, <code>a</code> is the smallest share of the area that is kept.</p>
+</section>
+
+<section class="callout think">
+  <h3>🤔 Quick quiz</h3>
+  <ol class="challenges">
+    <li>Do we augment the 🆕 test photos?
+      <details class="answer"><summary>Answer</summary>No. Test photos must be real and the same every time.</details></li>
+    <li>1,000 photos, 20 epochs with 🎲. How many files on 💾 disk after?
+      <details class="answer"><summary>Answer</summary>Still 1,000. But the model saw 20,000 different versions.</details></li>
+    <li>Telling a left hand from a right hand. Is ↔️ flip OK?
+      <details class="answer"><summary>Answer</summary>No! A flipped left hand looks like a right hand. 🏷️ The label breaks.</details></li>
+  </ol>
+</section>
+
+<nav class="pager">
+  <a href="12_quantization_pruning.html"><small>← Previous</small>12 · Making models small</a>
+  <a class="next" href="14_image_segmentation.html"><small>Next →</small>14 · Image segmentation</a>
+</nav>
+</main>
+<footer>Training, Visualized · works offline</footer>
+
+<script>
+const $=s=>document.querySelector(s);
+const put=(el,html)=>el.replaceChildren(document.createRange().createContextualFragment(html));
+const S=160;
+const REDUCED=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function mk(){const c=document.createElement('canvas');c.width=S;c.height=S;c.className='pic';return c;}
+let rnd=Math.random;   // swapped for a seeded one in ②, so a picture keeps its random draws while you drag a slider
+const seeded=a=>()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
+function gauss(){let u=0;while(u===0)u=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*rnd());}
+function circle(c,x,y,r){c.beginPath();c.arc(x,y,r,0,2*Math.PI);c.fill();}
+function ell(c,x,y,rx,ry){c.beginPath();c.ellipse(x,y,rx,ry,0,0,2*Math.PI);c.fill();}
+function tri(c,a,b,d,e,f,g){c.beginPath();c.moveTo(a,b);c.lineTo(d,e);c.lineTo(f,g);c.closePath();c.fill();}
+function line(c,a,b,d,e){c.beginPath();c.moveTo(a,b);c.lineTo(d,e);c.stroke();}
+
+// ---------- hero: marks pop in when visible ----------
+(function(){const a=$('#analogy');if(!('IntersectionObserver' in window)){a.classList.add('go');return;}
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){a.classList.add('go');io.disconnect();}}),{threshold:.3});io.observe(a);})();
+
+// ---------- procedural pictures (160 × 160) ----------
+function drawCat(c){
+  const g=c.createLinearGradient(0,0,0,112);g.addColorStop(0,'#74c0fc');g.addColorStop(1,'#d0ebff');c.fillStyle=g;c.fillRect(0,0,S,112);
+  c.fillStyle='#ffd43b';circle(c,30,28,14);c.strokeStyle='#fab005';c.lineWidth=3;c.lineCap='round';
+  for(let i=0;i<8;i++){const a=i*Math.PI/4;line(c,30+Math.cos(a)*19,28+Math.sin(a)*19,30+Math.cos(a)*25,28+Math.sin(a)*25);}
+  c.fillStyle='#fff';circle(c,108,28,9);circle(c,120,22,12);circle(c,133,28,9);c.fillRect(108,28,25,9);
+  c.fillStyle='#69db7c';c.fillRect(0,110,S,50);c.fillStyle='#40c057';c.fillRect(0,110,S,4);
+  c.fillStyle='#8d5524';c.fillRect(132,74,9,42);c.fillStyle='#2f9e44';circle(c,136,62,18);circle(c,125,73,12);circle(c,148,73,12);
+  c.fillStyle='#e03131';circle(c,26,136,10);c.strokeStyle='#fff';c.lineWidth=2;c.beginPath();c.arc(26,136,10,-0.6,0.9);c.stroke();
+  c.fillStyle='#ffd8a8';circle(c,50,146,2.5);circle(c,112,142,2.5);
+  c.strokeStyle='#f08c00';c.lineWidth=8;c.beginPath();c.moveTo(88,130);c.quadraticCurveTo(120,126,110,92);c.stroke();
+  c.fillStyle='#f59f00';ell(c,70,116,25,23);c.fillStyle='#ffe8cc';ell(c,70,122,13,15);
+  c.fillStyle='#f59f00';ell(c,60,138,8,5);ell(c,80,138,8,5);
+  tri(c,51,72,55,44,68,60);tri(c,89,72,85,44,72,60);c.fillStyle='#ffa8a8';tri(c,55,66,57,51,64,60);tri(c,85,66,83,51,76,60);
+  c.fillStyle='#f59f00';circle(c,70,78,21);
+  c.strokeStyle='#d9480f';c.lineWidth=2.5;line(c,63,60,64,66);line(c,70,58,70,65);line(c,77,60,76,66);
+  c.fillStyle='#212529';ell(c,62,76,3.3,4.4);ell(c,78,76,3.3,4.4);c.fillStyle='#fff';circle(c,63,74.5,1.1);circle(c,79,74.5,1.1);
+  c.fillStyle='#f06595';tri(c,66.5,84,73.5,84,70,88);
+  c.strokeStyle='#495057';c.lineWidth=1.3;c.beginPath();c.moveTo(70,88);c.quadraticCurveTo(68,92,64,91);c.moveTo(70,88);c.quadraticCurveTo(72,92,76,91);c.stroke();
+  line(c,60,86,43,82);line(c,60,88,43,90);line(c,80,86,97,82);line(c,80,88,97,90);
+  c.fillStyle='#1971c2';c.fillRect(56,96,28,4);c.fillStyle='#fcc419';circle(c,70,102,3);
+}
+function drawDigit(ch){return c=>{c.fillStyle='#fff';c.fillRect(0,0,S,S);c.fillStyle='#212529';c.font='bold 128px "Segoe UI", Arial, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(ch,80,86);};}
+function drawSign(c){
+  c.fillStyle='#d0ebff';c.fillRect(0,0,S,S);c.fillStyle='#868e96';c.fillRect(76,100,8,60);
+  c.fillStyle='#fff';circle(c,80,58,46);c.fillStyle='#1c7ed6';circle(c,80,58,41);
+  c.fillStyle='#fff';c.fillRect(70,48,32,20);tri(c,44,58,72,34,72,82);
+  c.fillStyle='#fff';c.fillRect(44,110,72,24);c.strokeStyle='#212529';c.lineWidth=2;c.strokeRect(44,110,72,24);
+  c.fillStyle='#212529';c.font='bold 17px "Segoe UI", Arial, sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText('LEFT',80,123);
+}
+function drawLight(c){
+  c.fillStyle='#e7f5ff';c.fillRect(0,0,S,S);c.fillStyle='#495057';c.fillRect(74,140,12,20);
+  c.fillStyle='#212529';c.beginPath();c.roundRect?c.roundRect(52,12,56,132,12):c.rect(52,12,56,132);c.fill();
+  c.fillStyle='rgba(255,60,60,.35)';circle(c,80,40,22);c.fillStyle='#ff3b3b';circle(c,80,40,16);
+  c.fillStyle='#3d4247';circle(c,80,78,16);circle(c,80,116,16);
+}
+function drawSat(c){
+  c.fillStyle='#8fbf6a';c.fillRect(0,0,S,S);
+  const F=[[0,0,60,40,'#a9d18e'],[64,0,50,30,'#d8c36a'],[118,0,42,55,'#6fa84f'],[0,44,40,50,'#c9d77e'],[44,34,40,40,'#7fb35a'],[0,98,55,62,'#b5cf7a'],[100,110,60,50,'#d8c36a'],[60,120,36,40,'#6fa84f']];
+  for(const [x,y,w,h,col] of F){c.fillStyle=col;c.fillRect(x+1,y+1,w-2,h-2);}
+  c.strokeStyle='#4dabf7';c.lineWidth=9;c.lineCap='round';c.beginPath();c.moveTo(-5,20);c.bezierCurveTo(60,40,40,110,165,130);c.stroke();
+  c.strokeStyle='#adb5bd';c.lineWidth=4;line(c,90,-5,110,165);
+  c.fillStyle='#e8590c';[[118,64],[128,70],[122,80],[134,84],[140,66]].forEach(([x,y])=>c.fillRect(x,y,6,6));
+  c.fillStyle='#f8f9fa';[[124,60],[137,76]].forEach(([x,y])=>c.fillRect(x,y,5,5));
+}
+function source(draw){const c=document.createElement('canvas');c.width=S;c.height=S;draw(c.getContext('2d'));return c;}
+const CAT=source(drawCat);
+
+// ---------- the augmentation engine ----------
+const P0={flip:false,vflip:false,rot:0,sx:1,sy:1,cx:0,cy:0,tx:0,ty:0,br:1,ct:1,sat:1,hue:0,blur:0,noise:0,erase:null};
+function hueShift(d,h){for(let i=0;i<d.length;i+=4){const r=d[i]/255,g=d[i+1]/255,b=d[i+2]/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),dl=mx-mn;let H=0;
+  if(dl){if(mx===r)H=((g-b)/dl)%6;else if(mx===g)H=(b-r)/dl+2;else H=(r-g)/dl+4;H/=6;if(H<0)H+=1;}
+  const s=mx?dl/mx:0,v=mx;H=((H+h)%1+1)%1;const k=n=>{const x=(n+H*6)%6;return v-v*s*Math.max(0,Math.min(x,4-x,1));};
+  d[i]=k(5)*255;d[i+1]=k(3)*255;d[i+2]=k(1)*255;}}
+function blurImg(d,W,sig){const R=Math.max(1,Math.ceil(sig*2)),k=[];let t=0;for(let i=-R;i<=R;i++){const v=Math.exp(-i*i/(2*sig*sig));k.push(v);t+=v;}for(let i=0;i<k.length;i++)k[i]/=t;
+  const tmp=new Float32Array(W*W*3),cl=v=>v<0?0:v>=W?W-1:v;
+  for(let y=0;y<W;y++)for(let x=0;x<W;x++)for(let ch=0;ch<3;ch++){let s=0;for(let i=-R;i<=R;i++)s+=k[i+R]*d[(y*W+cl(x+i))*4+ch];tmp[(y*W+x)*3+ch]=s;}
+  for(let y=0;y<W;y++)for(let x=0;x<W;x++)for(let ch=0;ch<3;ch++){let s=0;for(let i=-R;i<=R;i++)s+=k[i+R]*tmp[(cl(y+i)*W+x)*3+ch];d[(y*W+x)*4+ch]=s;}}
+function augment(src,out,q){const p={...P0,...q},c=out.getContext('2d'),W=out.width;
+  c.save();c.setTransform(1,0,0,1,0,0);c.fillStyle='#000';c.fillRect(0,0,W,W);
+  c.translate(W/2+p.tx*W,W/2+p.ty*W);c.rotate(p.rot*Math.PI/180);c.scale(p.sx*(p.flip?-1:1),p.sy*(p.vflip?-1:1));
+  c.translate(-W/2-p.cx*W,-W/2-p.cy*W);c.drawImage(src,0,0,W,W);c.restore();
+  const colour=p.br!==1||p.ct!==1||p.sat!==1||p.hue!==0;
+  if(colour||p.blur||p.noise){const im=c.getImageData(0,0,W,W),d=im.data,n=W*W;
+    if(p.br!==1)for(let i=0;i<d.length;i+=4){d[i]*=p.br;d[i+1]*=p.br;d[i+2]*=p.br;}
+    if(p.ct!==1){let m=0;for(let i=0;i<d.length;i+=4)m+=.299*d[i]+.587*d[i+1]+.114*d[i+2];m/=n;for(let i=0;i<d.length;i+=4)for(let ch=0;ch<3;ch++)d[i+ch]=(d[i+ch]-m)*p.ct+m;}
+    if(p.sat!==1)for(let i=0;i<d.length;i+=4){const gr=.299*d[i]+.587*d[i+1]+.114*d[i+2];for(let ch=0;ch<3;ch++)d[i+ch]=gr+(d[i+ch]-gr)*p.sat;}
+    if(p.hue)hueShift(d,p.hue);
+    if(p.blur)blurImg(d,W,p.blur*W/32);   // sigma is given in pixels of a 32×32 picture
+    if(p.noise)for(let i=0;i<d.length;i+=4)for(let ch=0;ch<3;ch++)d[i+ch]+=gauss()*255*p.noise;
+    c.putImageData(im,0,0);}
+  if(p.erase){c.fillStyle='#808080';c.fillRect(p.erase.x*W,p.erase.y*W,p.erase.w*W,p.erase.h*W);}
+}
+const u=(a,b)=>a+(b-a)*rnd();
+function sample(g){const p={},tags=[];
+  if(g.crop<1){const a=u(g.crop,1),r=Math.exp(u(Math.log(3/4),Math.log(4/3))),w=Math.min(1,Math.sqrt(a*r)),h=Math.min(1,Math.sqrt(a/r));
+    p.sx=1/w;p.sy=1/h;p.cx=u(-(1-w)/2,(1-w)/2);p.cy=u(-(1-h)/2,(1-h)/2);tags.push('🔍');}
+  if(g.flip&&rnd()<.5){p.flip=true;tags.push('↔️');}
+  if(g.rot){p.rot=u(-g.rot,g.rot);tags.push(Math.round(p.rot)+'°');}
+  if(g.shift){p.tx=u(-g.shift,g.shift);p.ty=u(-g.shift,g.shift);tags.push('✥');}
+  if(g.br){p.br=u(Math.max(0,1-g.br),1+g.br);}
+  if(g.ct)p.ct=u(Math.max(0,1-g.ct),1+g.ct);
+  if(g.br||g.ct)tags.push('☀️');
+  if(g.sat||g.hue){if(g.sat)p.sat=u(Math.max(0,1-g.sat),1+g.sat);if(g.hue)p.hue=u(-g.hue,g.hue);tags.push('🎨');}
+  if(g.blur){p.blur=u(0.1,g.blur);tags.push('💧');}
+  if(g.noise){p.noise=g.noise;tags.push('📺');}
+  if(g.erase&&rnd()<.5){const a=u(.02,Math.max(.03,g.erase)),r=Math.exp(u(Math.log(.3),Math.log(3.3))),w=Math.min(.95,Math.sqrt(a*r)),h=Math.min(.95,Math.sqrt(a/r));
+    p.erase={x:u(0,1-w),y:u(0,1-h),w,h};tags.push('⬛');}
+  return {p,tags};}
+
+// ---------- ② controls (sliders live in Detailed view) ----------
+const pct2=v=>'±'+(v/100).toFixed(2);
+const SL=[{g:'📐 Position & shape'},{id:'flip',check:1,name:'↔️ Horizontal flip (half of the time)',chip:'↔️ flip'},
+  {id:'rot',name:'🔄 Rotation',max:45,f:v=>`±${v}°`,chip:'🔄 rotate'},{id:'crop',name:'🔍 Random crop / zoom',max:80,f:v=>`keep ≥ ${100-v}%`,chip:'🔍 zoom'},{id:'shift',name:'✥ Shift',max:30,f:v=>`±${v}%`,chip:'✥ shift'},
+  {g:'🎨 Light & colour'},{id:'br',name:'☀️ Brightness',max:80,f:pct2,chip:'☀️ light'},{id:'ct',name:'◐ Contrast',max:80,f:pct2,chip:'◐ contrast',adv:1},{id:'sat',name:'🌈 Saturation',max:100,f:pct2,chip:'🌈 saturation',adv:1},{id:'hue',name:'🎨 Hue (colour shift)',max:50,f:pct2,chip:'🎨 colour'},
+  {g:'🧽 Blur, noise & holes'},{id:'blur',name:'💧 Blur',max:20,f:v=>`σ ≤ ${(v/10).toFixed(1)}`,chip:'💧 blur'},{id:'noise',name:'📺 Noise',max:30,f:v=>(v/100).toFixed(2),chip:'📺 noise'},{id:'erase',name:'⬛ Cutout (random erasing)',max:40,f:v=>`box ≤ ${v}%`,chip:'⬛ cutout'}];
+const PRE={none:{flip:0,rot:0,crop:0,shift:0,br:0,ct:0,sat:0,hue:0,blur:0,noise:0,erase:0},
+  good:{flip:1,rot:10,crop:30,shift:10,br:20,ct:20,sat:20,hue:2,blur:0,noise:0,erase:0},
+  strong:{flip:1,rot:45,crop:80,shift:30,br:80,ct:80,sat:100,hue:50,blur:20,noise:30,erase:40}};
+// strength used to demo "one change" when that change is switched off in the current setting
+const DEMO={flip:1,rot:30,crop:60,shift:20,br:60,ct:60,sat:80,hue:30,blur:15,noise:20,erase:30};
+const toCfg=s=>({flip:!!s.flip,rot:s.rot,crop:1-s.crop/100,shift:s.shift/100,br:s.br/100,ct:s.ct/100,sat:s.sat/100,hue:s.hue/100,blur:s.blur/10,noise:s.noise/100,erase:s.erase/100});
+let h='';
+for(const s of SL){if(s.g){h+=`<h3>${s.g}</h3>`;continue;}
+  h+=s.check?`<label class="check"><input type="checkbox" id="s_${s.id}"> ${s.name}</label>`
+    :`<div class="ctl"><label for="s_${s.id}">${s.name} <output id="o_${s.id}"></output></label><input type="range" id="s_${s.id}" min="0" max="${s.max}" step="1" value="0"></div>`;}
+put($('#controls'),h);
+put($('#chips'),SL.filter(s=>s.id).map(s=>`<button class="btn${s.adv?' adv':''}" data-id="${s.id}">${s.chip}</button>`).join(''));
+function readSliders(){const o={};for(const s of SL)if(s.id){const el=$('#s_'+s.id);o[s.id]=s.check?(el.checked?1:0):+el.value;}return o;}
+function setSliders(o){for(const s of SL)if(s.id){const el=$('#s_'+s.id);if(s.check)el.checked=!!o[s.id];else el.value=o[s.id];}}
+function labels(){const o=readSliders();for(const s of SL)if(s.id&&!s.check)$('#o_'+s.id).textContent=o[s.id]?s.f(o[s.id]):'off';}
+function presetOn(k){document.querySelectorAll('#presets [data-k]').forEach(b=>{b.classList.toggle('on',b.dataset.k===k);});}
+
+const batchFigs=[];
+for(let i=0;i<8;i++){const f=document.createElement('figure'),c=mk(),cap=document.createElement('figcaption');f.append(c,cap);$('#batch').append(f);batchFigs.push({c,cap});}
+const mixFigs=[];
+for(let i=0;i<8;i++){const f=document.createElement('figure'),c=mk(),cap=document.createElement('figcaption');f.append(c,cap);$('#batch2').append(f);mixFigs.push({c,cap});}
+let seeds=mixFigs.map(()=>Math.random()*2**32|0),lastOne='rot';
+function roll(){const g=toCfg(readSliders());mixFigs.forEach((b,i)=>{rnd=seeded(seeds[i]);const {p,tags}=sample(g);augment(CAT,b.c,p);b.cap.textContent=tags.length?tags.join(' '):'unchanged';});rnd=Math.random;}
+function reroll(){seeds=seeds.map(()=>Math.random()*2**32|0);roll();}
+// one change only, 8 fixed steps from smallest to biggest: no randomness, so nothing flickers while you drag
+const lerp=(a,b,t)=>a+(b-a)*t,sg=v=>(v>0?'+':v<0?'−':'')+Math.abs(v);
+const ONE={
+  flip:(g,t,i)=>g.flip?[{flip:i%2===1},i%2?'flipped':'normal']:[{},'off'],
+  rot:(g,t)=>{const r=lerp(-g.rot,g.rot,t);return[{rot:r},sg(Math.round(r))+'°'];},
+  crop:(g,t,i)=>{const a=lerp(g.crop,1,t),w=Math.sqrt(a),m=(1-w)/2,d=[[-1,-1],[1,-1],[-1,1],[1,1]][i%4];return[{sx:1/w,sy:1/w,cx:d[0]*m,cy:d[1]*m},'keep '+Math.round(a*100)+'%'];},
+  shift:(g,t,i)=>{const an=i*Math.PI/4,x=g.shift*Math.cos(an),y=g.shift*Math.sin(an);return[{tx:x,ty:y},`x ${sg(Math.round(x*100))}% y ${sg(Math.round(y*100))}%`];},
+  br:(g,t)=>{const v=lerp(Math.max(0,1-g.br),1+g.br,t);return[{br:v},'× '+v.toFixed(2)];},
+  ct:(g,t)=>{const v=lerp(Math.max(0,1-g.ct),1+g.ct,t);return[{ct:v},'× '+v.toFixed(2)];},
+  sat:(g,t)=>{const v=lerp(Math.max(0,1-g.sat),1+g.sat,t);return[{sat:v},'× '+v.toFixed(2)];},
+  hue:(g,t)=>{const v=lerp(-g.hue,g.hue,t);return[{hue:v},sg(+v.toFixed(2))];},
+  blur:(g,t)=>{const v=lerp(0.1,g.blur,t);return[{blur:v},'σ '+v.toFixed(1)];},
+  noise:(g,t)=>{const v=lerp(g.noise/8,g.noise,t);return[{noise:v},'noise '+v.toFixed(2)];},
+  erase:(g,t,i)=>{const a=lerp(.02,Math.max(.03,g.erase),t),w=Math.sqrt(a),d=[[.1,.1],[.55,.15],[.2,.5],[.5,.55]][i%4];return[{erase:{x:Math.min(d[0],1-w),y:Math.min(d[1],1-w),w,h:w}},'box '+Math.round(a*100)+'%'];}};
+function showOne(id){lastOne=id;const o=readSliders(),s=SL.find(x=>x.id===id);
+  if(!o[id])o[id]=DEMO[id];   // switched off right now: still demo what it does
+  const g=toCfg(o);
+  batchFigs.forEach((b,i)=>{const [p,cap]=ONE[id](g,i/7,i);augment(CAT,b.c,p);b.cap.textContent=cap;});
+  $('#batchT').textContent=`Only ${s.chip}: smallest → biggest`;
+  document.querySelectorAll('#chips .btn').forEach(b=>b.classList.toggle('on',b.dataset.id===id));}
+const N=v=>`<span class="n">${v}</span>`,CM=t=>`<span class="c"># ${t}</span>`;
+function codeUpdate(){const o=readSliders(),g=toCfg(o),L=[];const f2=v=>v.toFixed(2);
+  if(o.crop)L.push(`transforms.RandomResizedCrop(${N(32)}, scale=(${N(f2(g.crop))}, ${N('1.0')})),`);
+  if(o.flip)L.push(`transforms.RandomHorizontalFlip(p=${N(0.5)}),`);
+  if(o.rot)L.push(`transforms.RandomRotation(${N(o.rot)}),`);
+  if(o.shift)L.push(`transforms.RandomAffine(degrees=${N(0)}, translate=(${N(f2(g.shift))}, ${N(f2(g.shift))})),`);
+  const cj=[['brightness',g.br],['contrast',g.ct],['saturation',g.sat],['hue',g.hue]].filter(x=>x[1]>0);
+  if(cj.length)L.push(`transforms.ColorJitter(${cj.map(([k,v])=>`${k}=${N(f2(v))}`).join(', ')}),`);
+  if(o.blur)L.push(`transforms.GaussianBlur(kernel_size=${N(5)}, sigma=(${N(0.1)}, ${N(g.blur.toFixed(1))})),`);
+  L.push('transforms.ToTensor(),');
+  if(o.noise)L.push(`transforms.Lambda(<span class="k">lambda</span> x: x + ${N(f2(g.noise))} * torch.randn_like(x)),  ${CM('add noise')}`);
+  L.push('transforms.Normalize(mean, std),');
+  if(o.erase)L.push(`transforms.RandomErasing(p=${N(0.5)}, scale=(${N(0.02)}, ${N(f2(g.erase))})),`);
+  const none=L.length===2;
+  put($('#code'),`train_tf = transforms.Compose([${none?'   '+CM('no augmentation: every epoch sees the same pixels'):''}\n${L.map(l=>'    '+l).join('\n')}\n])\ntest_tf  = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean, std)])   ${CM('never augmented')}`);}
+let pend=false;
+function refresh(one){labels();codeUpdate();if(pend)return;pend=true;requestAnimationFrame(()=>{pend=false;showOne(one||lastOne);roll();});}
+document.querySelectorAll('#controls input').forEach(el=>el.addEventListener('input',()=>{presetOn(null);refresh(el.id.slice(2));}));
+document.querySelectorAll('#presets [data-k]').forEach(b=>b.onclick=()=>{document.querySelectorAll('#presets .pulse').forEach(x=>x.classList.remove('pulse'));setSliders(PRE[b.dataset.k]);presetOn(b.dataset.k);reroll();refresh();});
+document.querySelectorAll('#chips .btn').forEach(b=>b.onclick=()=>showOne(b.dataset.id));
+$('#roll').onclick=reroll;
+augment(CAT,$('#origc'),{});
+setSliders(PRE.good);presetOn('good');refresh();
+
+// ---------- ① epochs: same pixels vs a new version ----------
+function miniRow(el,n,lab){const cs=[];for(let i=0;i<n;i++){const f=document.createElement('figure'),c=mk(),cap=document.createElement('figcaption');cap.textContent=lab(i);f.append(c,cap);el.append(f);cs.push(c);}return cs;}
+const rowNone=miniRow($('#rowNone'),6,i=>'epoch '+(i+1)),rowAug=miniRow($('#rowAug'),6,i=>'epoch '+(i+1));
+rowNone.forEach(c=>augment(CAT,c,{}));
+function shuffle1(){const g=toCfg(PRE.good);rowAug.forEach(c=>augment(CAT,c,sample(g).p));}
+$('#shuffle1').onclick=shuffle1;shuffle1();
+const CAP1_END='🚫 Same pixels every time → learned by heart. 🎲 A new cat every time → learns "cat".';
+let playT=null;
+function play1(){clearTimeout(playT);shuffle1();const figs=[...$('#rowNone').children,...$('#rowAug').children];
+  if(REDUCED){figs.forEach(f=>f.classList.remove('hid'));$('#cap1').textContent=CAP1_END;return;}
+  figs.forEach(f=>f.classList.add('hid'));let k=0;
+  const tick=()=>{$('#rowNone').children[k].classList.remove('hid');$('#rowAug').children[k].classList.remove('hid');
+    $('#cap1').textContent=`Epoch ${k+1}: 🚫 the same photo again · 🎲 a brand-new cat`;
+    if(++k<6)playT=setTimeout(tick,850);else playT=setTimeout(()=>{$('#cap1').textContent=CAP1_END;},1200);};
+  tick();}
+$('#play1').onclick=play1;
+if('IntersectionObserver' in window&&!REDUCED){const io1=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){play1();io1.disconnect();}}),{threshold:.5});io1.observe($('#rowAug'));}
+
+// ---------- ③ good vs bad ----------
+const CASES=[
+  {t:'🐱 Flip ↔️',lab:'cat',d:drawCat,p:{flip:true},ok:true,why:'A cat facing the other way is still a cat.'},
+  {t:'6️⃣ Upside down',lab:'6',d:drawDigit('6'),p:{rot:180},ok:false,why:'Upside down, a 6 becomes a 9!'},
+  {t:'7️⃣ Small tilt 🔄',lab:'7',d:drawDigit('7'),p:{rot:10},ok:true,why:'People write slanted anyway. Still a 7.'},
+  {t:'⬅️ Sign, flip ↔️',lab:'turn left',d:drawSign,p:{flip:true},ok:false,why:'Now it points right. The label is wrong.'},
+  {t:'🚦 Colour change 🎨',lab:'stop (red)',d:drawLight,p:{hue:0.33},ok:false,why:'Red became green: "stop" became "go"!'},
+  {t:'🐱 Very hard zoom 🔍',lab:'cat',d:drawCat,p:{sx:4.5,sy:4.5,cx:-0.36,cy:0.36},ok:false,why:'Only grass and a ball. No cat left.'},
+  {t:'🛰️ Upside down',lab:'farmland',d:drawSat,p:{vflip:true},ok:true,why:'From space there is no "up".'},
+  {t:'🐱 A bit darker ☀️',lab:'cat',d:drawCat,p:{br:0.65},ok:true,why:'Like a cloudy day. Still a cat.'}];
+const CS={};
+function buildCases(){let html='';CASES.forEach((k,i)=>{html+=`<div class="case" id="case${i}"><h3>${k.t}</h3><div class="pair"><canvas class="pic" width="${S}" height="${S}"></canvas><span>➜</span><canvas class="pic" width="${S}" height="${S}"></canvas></div>
+    <div class="q">🏷️ <b>"${k.lab}"</b> still true?</div><div class="btn-row"><button class="btn" data-i="${i}" data-g="1">✅ Yes</button><button class="btn" data-i="${i}" data-g="0">❌ No</button></div><div class="ans"></div></div>`;});
+  put($('#cases'),html);
+  CASES.forEach((k,i)=>{const src=source(k.d),cv=document.querySelectorAll(`#case${i} canvas`);augment(src,cv[0],{});augment(src,cv[1],k.p);});
+  document.querySelectorAll('#cases .btn').forEach(b=>b.onclick=()=>reveal(+b.dataset.i,b.dataset.g==='1'));
+  CS.done={};score();}
+function reveal(i,guess){if(i in CS.done)return;const k=CASES[i],card=$('#case'+i);CS.done[i]=guess===null?null:guess===k.ok;
+  card.classList.add(k.ok?'good':'bad');card.querySelectorAll('.btn').forEach(b=>b.disabled=true);
+  const head=guess===null?'':(guess===k.ok?'🎉 ':'🙈 ');
+  put(card.querySelector('.ans'),`${head}${k.ok?'✅ Good.':'❌ Bad.'} ${k.why}`);score();}
+function score(){const v=Object.values(CS.done),g=v.filter(x=>x!==null);$('#score').textContent=`${g.filter(Boolean).length} / ${g.length}`;}
+$('#revealAll').onclick=()=>CASES.forEach((_,i)=>reveal(i,null));
+$('#resetCases').onclick=buildCases;
+buildCases();
+
+// ---------- ④ real Day 2 results (bars) + illustration chart (Detailed) ----------
+// numbers from Day2_Transfer_Learning_and_Optimization/05_data_augmentation.ipynb (5,000 CIFAR-10 training pictures, 2,000 test)
+const REAL={none:{tr:98.0,te:60.7},good:{tr:67.4,te:64.4},strong:{tr:15.5,te:22.4}};
+const VERD={none:['bad','🤓 Learned by heart: great on practice, weak on new photos.'],
+  good:['good','🎯 Best on new photos, and the gap is tiny.'],
+  strong:['bad','😵 Too messy: it can\'t even learn the practice photos.']};
+const E=30,ex=Math.exp;
+const CUR={none:{tr:e=>0.1+0.89*(1-ex(-e/4)),va:e=>0.1+0.62*(1-ex(-e/3.5))-0.003*Math.max(0,e-8)},
+  good:{tr:e=>0.1+0.78*(1-ex(-e/7)),va:e=>0.1+0.72*(1-ex(-e/7.5))},
+  strong:{tr:e=>0.1+0.42*(1-ex(-e/10)),va:e=>0.1+0.46*(1-ex(-e/10))}};
+let CK='none',anim=null;
+const rowChart=miniRow($('#rowChart'),6,()=>'');
+function setupCanvas(cv){const dpr=window.devicePixelRatio||1,r=cv.getBoundingClientRect();cv.width=Math.max(1,Math.round(r.width*dpr));cv.height=Math.max(1,Math.round(r.height*dpr));
+  const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);return {ctx,w:r.width,h:r.height};}
+function drawChart(t){const {ctx,w:W,h:H}=setupCanvas($('#chart'));if(W<60)return;const L=40,T=10,pw=W-L-12,ph=H-T-30,sx=e=>L+e/E*pw,sy=v=>T+(1-v)*ph,cur=CUR[CK],end=t*E;
+  ctx.font='11px Segoe UI, sans-serif';ctx.fillStyle='#868e96';ctx.lineWidth=1;
+  for(let v=0;v<=1.001;v+=0.2){ctx.strokeStyle='#eef0f3';ctx.beginPath();ctx.moveTo(L,sy(v));ctx.lineTo(L+pw,sy(v));ctx.stroke();ctx.textAlign='right';ctx.fillText(Math.round(v*100)+'%',L-4,sy(v)+4);}
+  ctx.textAlign='center';for(let e=0;e<=E;e+=5)ctx.fillText(e,sx(e),T+ph+14);ctx.fillText('epoch',L+pw/2,H-2);
+  const path=(f,e1)=>{ctx.beginPath();for(let e=0;e<=e1+1e-9;e+=0.25){const x=sx(e),y=sy(f(e));e?ctx.lineTo(x,y):ctx.moveTo(x,y);}};
+  ctx.setLineDash([5,4]);ctx.strokeStyle='#ced4da';ctx.lineWidth=1.5;for(const k in CUR)if(k!==CK){path(CUR[k].va,E);ctx.stroke();}ctx.setLineDash([]);
+  ctx.beginPath();for(let e=0;e<=end;e+=0.25)ctx.lineTo(sx(e),sy(cur.tr(e)));for(let e=Math.floor(end*4)/4;e>=0;e-=0.25)ctx.lineTo(sx(e),sy(cur.va(e)));ctx.closePath();ctx.fillStyle='rgba(224,49,49,.13)';ctx.fill();
+  ctx.lineWidth=2.8;ctx.strokeStyle='#f08c00';path(cur.tr,end);ctx.stroke();ctx.strokeStyle='#2f6fed';path(cur.va,end);ctx.stroke();}
+function setCurve(k,first){CK=k;document.querySelectorAll('#seg3 .btn').forEach(b=>{b.classList.toggle('on',b.dataset.k===k);if(!first)b.classList.remove('pulse');});
+  const r=REAL[k],gap=Math.round(r.tr-r.te);
+  $('#bTr').style.width=r.tr+'%';$('#bTe').style.width=r.te+'%';
+  $('#fTr').textContent=Math.round(r.tr)+'%';$('#fVa').textContent=Math.round(r.te)+'%';
+  $('#fGap').textContent=(gap>0?gap:'−'+Math.abs(gap))+' pts';$('#fGap').style.color=Math.abs(gap)>10?'var(--red)':'var(--green)';
+  const vd=$('#verdict');vd.className='verdict '+VERD[k][0];vd.textContent=VERD[k][1];
+  const g=toCfg(PRE[k]);rowChart.forEach(cv=>augment(CAT,cv,sample(g).p));
+  if(REDUCED){drawChart(1);return;}
+  const t0=performance.now(),me=anim={};const step=now=>{if(anim!==me)return;const t=Math.min(1,(now-t0)/700);drawChart(t);if(t<1)requestAnimationFrame(step);};requestAnimationFrame(step);drawChart(0);}
+document.querySelectorAll('#seg3 .btn').forEach(b=>b.onclick=()=>setCurve(b.dataset.k));
+window.addEventListener('resize',()=>{anim=null;drawChart(1);});
+// bars grow when the section scrolls into view
+(function(){const go=()=>setCurve('none',true);if(!('IntersectionObserver' in window)){go();return;}
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){go();io.disconnect();}}),{threshold:.4});io.observe($('#bTr'));})();
+</script>
+<script>
+/* Simple / Detailed switch: simple view hides code and trainer notes (class "adv"). Remembered per browser. */
+(function(){var b=document.getElementById('modeBtn'),m='simple';try{m=localStorage.getItem('tv-mode')||'simple';}catch(e){}
+function set(s){document.body.classList.toggle('simple',s);b.textContent=s?'👶 Simple view (click for details)':'🎓 Detailed view (click to simplify)';}
+set(m==='simple');b.onclick=function(){var s=!document.body.classList.contains('simple');set(s);try{localStorage.setItem('tv-mode',s?'simple':'detailed');}catch(e){}window.dispatchEvent(new Event('resize'));};})();
+</script>
+</body>
+</html>

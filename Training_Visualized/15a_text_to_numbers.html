@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>15a · Text to numbers — Training, Visualized</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  /* springs generated with the Apple duration/bounce model (designing-like-apple/spring.js) */
+  :root{
+    --spring-smooth: linear(0, 0.0392, 0.1285, 0.2385, 0.3517, 0.4587, 0.5547, 0.638, 0.7085, 0.7672, 0.8153, 0.8543, 0.8856, 0.9106, 0.9304, 0.946, 0.9582, 0.9677, 0.9752, 0.9809, 0.9854, 0.9888, 0.9915, 0.9935, 1);
+    --spring-smooth-ms: 592ms;
+    --spring-snappy: linear(0, 0.0339, 0.1156, 0.2218, 0.3364, 0.449, 0.5534, 0.646, 0.7256, 0.7921, 0.8463, 0.8896, 0.9232, 0.9489, 0.968, 0.9819, 0.9916, 0.9981, 1.0023, 1.0047, 1.0059, 1.0063, 1.0061, 1.0056, 1);
+    --spring-snappy-ms: 539ms;
+    --spring-quick: linear(0, 0.0227, 0.0794, 0.1561, 0.2429, 0.3327, 0.4206, 0.5035, 0.5796, 0.648, 0.7083, 0.7607, 0.8056, 0.8437, 0.8756, 0.902, 0.9237, 0.9413, 0.9555, 0.9668, 0.9757, 0.9827, 0.988, 0.992, 1);
+    --spring-quick-ms: 218ms;
+    --c-animal:#e8590c; --c-food:#2f9e44; --c-place:#1971c2; --c-person:#c2255c; --c-machine:#495057; --c-feeling:#f08c00; --c-action:#7048e8; --c-little:#adb5bd;
+  }
+  .hero h1{font-size:clamp(2rem,5vw,3.1rem);letter-spacing:-.025em;line-height:1.08;margin-bottom:.35em}
+  .hero h1 .arrow{color:var(--blue)}
+  .bigq{font-size:clamp(1.35rem,3vw,1.9rem);letter-spacing:-.015em;line-height:1.2;font-weight:700;margin:.1rem 0 .4rem}
+  .sub{color:var(--muted);font-size:1.1rem;margin:.2rem 0 .6rem;max-width:46rem}
+  .hint{font-size:1rem;font-weight:600;color:var(--blue);margin:.1rem 0 .5rem}
+
+  /* hero */
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin:0 0 .8rem}
+  .flow span{background:#fff;border:1px solid var(--line);border-radius:999px;padding:.35rem .9rem;font-size:1.05rem}
+  .flow i{font-style:normal;color:var(--blue);font-weight:800;font-size:1.2rem}
+  .analogy{display:flex;flex-direction:column;gap:.7rem;background:#fff;border:1px solid var(--line);border-radius:18px;padding:1rem 1.2rem;box-shadow:var(--shadow);max-width:52rem}
+  .arow{display:grid;grid-template-columns:7.5rem minmax(0,1fr);gap:.8rem;align-items:center}
+  .arow .who{font-size:1.9rem;white-space:nowrap;text-align:center}
+  .arow .lbl{font-size:.95rem;font-weight:600;margin-bottom:.2rem}
+  .arow .bar{height:1.6rem;background:var(--soft);border-radius:99px;overflow:hidden}
+  .arow .bar i{display:flex;align-items:center;justify-content:flex-end;height:100%;width:0;border-radius:99px;color:#fff;font-style:normal;font-weight:700;font-size:.85rem;padding-right:.6rem;white-space:nowrap;min-width:6rem;transition:width 1.6s cubic-bezier(.2,.8,.2,1)}
+  .analogy .tag{font-size:1.05rem;font-weight:700;color:var(--blue);text-align:center;margin-top:.2rem}
+  @media (max-width:480px){.arow{grid-template-columns:5.2rem minmax(0,1fr);gap:.5rem}.arow .who{font-size:1.4rem}}
+  .chipsrow{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.8rem}
+  .wchip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:.3rem .8rem;font-size:.92rem}
+  .rowlbl{font-size:.82rem;font-weight:700;color:var(--muted);margin:.9rem 0 .3rem;text-transform:uppercase;letter-spacing:.05em}
+  .bignums{display:flex;flex-wrap:wrap;gap:.7rem}
+  .bignum{background:#fff;border:1px solid var(--line);border-radius:14px;padding:.5rem .9rem;text-align:center;min-width:8rem;flex:1 1 8rem}
+  .bignum b{display:block;font:800 1.7rem/1.1 var(--sans);letter-spacing:-.02em}
+  .bignum span{font-size:.82rem;color:var(--muted)}
+
+  /* ① spelling vs meaning */
+  .vs{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:.8rem;align-items:start;margin:.8rem 0}
+  @media (max-width:640px){.vs{grid-template-columns:1fr}.vs .mid{display:none}}
+  .wcard{background:#fff;border:1px solid var(--line);border-radius:16px;padding:.8rem 1rem;min-width:0}
+  .wcard input{width:100%;font:700 1.6rem/1.2 var(--sans);letter-spacing:-.01em;border:0;border-bottom:2px solid var(--line);padding:.1rem 0 .25rem;outline:0;background:transparent;color:var(--ink)}
+  .wcard input:focus{border-bottom-color:var(--blue)}
+  .codes{display:flex;flex-wrap:wrap;gap:.25rem;margin-top:.55rem;min-height:2.6rem}
+  .code{display:flex;flex-direction:column;align-items:center;min-width:2.2rem;padding:.15rem .3rem;border-radius:8px;background:var(--soft);border:1px solid var(--line);font-family:var(--mono)}
+  .code b{font-size:.92rem}
+  .code small{font-size:.7rem;color:var(--muted)}
+  .code.same{background:#fff3bf;border-color:#f0b400}
+  .vs .mid{align-self:center;font-size:1.6rem;color:var(--muted)}
+  .meters{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:.8rem;margin:.4rem 0}
+  .meter{background:#fff;border:1px solid var(--line);border-radius:16px;padding:.7rem 1rem}
+  .meter .lbl{font-size:.85rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .meter .num{font:800 2.3rem/1.1 var(--sans);letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+  .meter .track{height:.7rem;border-radius:99px;background:var(--soft);overflow:hidden;margin:.3rem 0 .2rem}
+  .meter .fill{height:100%;border-radius:99px;transform-origin:left;transition:transform var(--spring-smooth-ms) var(--spring-smooth)}
+  .meter .why{font-size:.88rem;color:var(--muted);min-height:1.4rem}
+
+  /* ② machine */
+  .composer{display:flex;gap:.5rem;align-items:center;background:#fff;border:2px solid var(--line);border-radius:18px;padding:.45rem .5rem .45rem 1rem;transition:border-color .2s,box-shadow .2s;margin:.6rem 0 .4rem}
+  .composer:focus-within{border-color:var(--blue);box-shadow:0 0 0 4px rgba(47,111,237,.12)}
+  .composer input{flex:1;min-width:0;border:0;outline:0;font:600 1.3rem/1.3 var(--sans);letter-spacing:-.01em;background:transparent;color:var(--ink)}
+  .composer .go{white-space:nowrap}
+  kbd{border:1px solid #ced4da;border-bottom-width:2px;background:#fff}
+  .chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:.2rem 0 .6rem}
+  .chip{font:inherit;font-size:.86rem;border:1px solid var(--line);background:#fff;border-radius:999px;padding:.25rem .7rem;cursor:pointer;color:var(--ink)}
+  .chip:hover{border-color:var(--blue);color:var(--blue)}
+  .ladder{display:flex;flex-direction:column;gap:.7rem;margin-top:.6rem}
+  .rung{display:grid;grid-template-columns:minmax(0,15rem) minmax(0,1fr);gap:1rem;background:#fff;border:1px solid var(--line);border-radius:16px;padding:.8rem 1rem;align-items:start}
+  @media (max-width:820px){.rung{grid-template-columns:1fr;gap:.4rem}}
+  .rung .head .n{display:inline-grid;place-items:center;width:1.7rem;height:1.7rem;border-radius:50%;background:var(--ink);color:#fff;font-weight:800;font-size:.85rem;margin-right:.4rem}
+  .rung .head h3{display:inline;font-size:1.08rem;margin:0}
+  .rung .head .em{display:block;font-size:2rem;line-height:1.1;margin-bottom:.2rem}
+  @media (max-width:820px){.rung .head .em{display:inline;font-size:1.5rem;margin-right:.3rem}}
+  .rung .head .ana{display:block;font-size:.95rem;color:var(--muted);margin:.25rem 0 .4rem;line-height:1.4;font-style:italic}
+  .rung .head .per{font-size:.8rem;font-family:var(--mono);background:var(--soft);border-radius:8px;padding:.15rem .45rem;display:inline-block}
+  .rung .verdict{font-size:.9rem;font-weight:600;margin-top:.5rem;padding:.35rem .6rem;border-radius:10px}
+  .rung .verdict.bad{background:var(--bad-bg);color:#c92a2a}
+  .rung .verdict.good{background:var(--good-bg);color:var(--green)}
+  .rung.best{border:2px solid var(--green);box-shadow:0 8px 28px rgba(47,158,68,.12)}
+  .viz{min-width:0}
+  .wrow{display:grid;grid-template-columns:minmax(3.5rem,5.5rem) minmax(0,1fr);gap:.5rem;align-items:center;margin:.22rem 0}
+  .wrow .wl{font-family:var(--mono);font-weight:700;font-size:.88rem;overflow-wrap:anywhere;text-align:right}
+  .wrow .wl.unk{color:var(--red)}
+  .cells{display:flex;flex-wrap:wrap;gap:3px}
+  .cell{font-family:var(--mono);font-size:.8rem;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:.05rem .4rem;min-width:1.9rem;text-align:center}
+  .cell.pad{color:#adb5bd;border-style:dashed}
+  .cell.unk{background:#fff5f5;border-color:#ffc9c9;color:var(--red)}
+  .cell.id{background:#e7f0ff;border-color:#a5c4ff;font-weight:700}
+  .oh{display:grid;gap:1px;height:14px;flex:1;min-width:0}
+  .oh i{background:#edf0f4;border-radius:1px}
+  .oh i.on{background:var(--orange);box-shadow:0 0 0 2px rgba(240,140,0,.35)}
+  .oh-wrap{display:flex;align-items:center;gap:.5rem;min-width:0}
+  .oh-wrap small{font-family:var(--mono);font-size:.74rem;color:var(--muted);white-space:nowrap}
+  .bow{display:grid;gap:1px;height:46px;align-items:end;margin:.2rem 0}
+  .bow i{background:#edf0f4;border-radius:2px 2px 0 0;height:3px}
+  .bow i.on{background:var(--blue)}
+  .counts{display:flex;flex-wrap:wrap;gap:.3rem;margin:.3rem 0}
+  .counts span{font-family:var(--mono);font-size:.82rem;background:#e7f0ff;border:1px solid #a5c4ff;border-radius:8px;padding:.05rem .45rem}
+  .emb{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:2px;flex:1;min-width:0}
+  .emb i{height:1.45rem;border-radius:4px;border:1px solid rgba(0,0,0,.06);font-style:normal;font-family:var(--mono);font-size:.6rem;display:grid;place-items:center;color:#1c2230;overflow:hidden}
+  .embhead{display:grid;grid-template-columns:minmax(3.5rem,5.5rem) minmax(0,1fr);gap:.5rem;margin-bottom:.1rem}
+  .embhead .emb i{height:auto;border:0;font-size:.85rem;background:transparent!important}
+  .legendbar{display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--muted);margin-top:.35rem;flex-wrap:wrap}
+  .legendbar .grad{display:inline-block;width:7rem;height:.7rem;border-radius:4px;background:linear-gradient(90deg,#2f6fed,#fff,#f08c00);border:1px solid var(--line)}
+  /* State driver: Enter rebuilds the ladder; each rung's cells spring in, rung by rung */
+  .ladder.build .rung .viz > *{animation:rise var(--spring-snappy-ms) var(--spring-snappy) both;animation-delay:calc(var(--r,0) * 110ms)}
+  .ladder.build .rung{animation:lift var(--spring-smooth-ms) var(--spring-smooth) both;animation-delay:calc(var(--r,0) * 110ms)}
+  @keyframes rise{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+  @keyframes lift{from{transform:translateY(14px)}to{transform:none}}
+
+  /* ③ map */
+  .maplab{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,21rem);gap:1rem;align-items:start}
+  @media (max-width:980px){.maplab{grid-template-columns:1fr}}
+  .mapbox{background:#fcfcfd;border:1px solid var(--line);border-radius:18px;padding:.3rem;position:relative;min-width:0}
+  .mapscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  svg#map{display:block;width:100%;height:auto;min-width:560px;font-family:var(--sans);user-select:none}
+  #map .zone{font-size:17px;font-weight:800;opacity:.14;text-anchor:middle;letter-spacing:.02em}
+  #map .wd{cursor:pointer;transition:opacity var(--spring-quick-ms) var(--spring-quick)}
+  #map .wd .dot{transition:transform var(--spring-snappy-ms) var(--spring-snappy);transform-box:fill-box;transform-origin:center}
+  #map .wd text{font-size:13px;text-anchor:middle;fill:#1c2230;paint-order:stroke;stroke:#fcfcfd;stroke-width:4px;stroke-linejoin:round}
+  #map .wd.little text{font-size:11px;fill:#868e96}
+  #map.dim .wd{opacity:.2}
+  #map.dim .wd.hl,#map.dim .wd.sel,#map.dim .wd.nb,#map.dim .wd.an{opacity:1}
+  #map .wd.hl .dot,#map .wd.sel .dot,#map .wd.an .dot{transform:scale(1.9)}
+  #map .wd.hl text,#map .wd.sel text,#map .wd.an text{font-weight:800;font-size:15px}
+  #map .ring{fill:none;stroke-width:2.5;transform-box:fill-box;transform-origin:center;animation:ring 1.4s var(--spring-smooth) both}
+  @keyframes ring{from{transform:scale(.3);opacity:1}to{transform:scale(1);opacity:.0}}
+  #map .nbline{stroke:#adb5bd;stroke-width:1.5;stroke-dasharray:4 4}
+  /* State driver: choosing an analogy draws its arrows (stroke-dashoffset) */
+  #map .arw{fill:none;stroke-width:3.5;stroke-linecap:round;transition:stroke-dashoffset 900ms var(--spring-smooth)}
+  #map .arw.a1{stroke:#f08c00}
+  #map .arw.a2{stroke:#f08c00}
+  #map .land{fill:#fff;stroke:#f08c00;stroke-width:3;stroke-dasharray:3 3}
+  .side{display:flex;flex-direction:column;gap:.8rem;min-width:0}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:16px;padding:.75rem .9rem}
+  .panel h3{font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 .4rem}
+  .bigword{font:800 1.8rem/1.1 var(--sans);letter-spacing:-.02em}
+  .nbrow{display:grid;grid-template-columns:minmax(0,6rem) minmax(0,1fr) 3rem;gap:.4rem;align-items:center;font-size:.9rem;margin:.2rem 0}
+  .nbrow .t{height:.65rem;background:var(--soft);border-radius:99px;overflow:hidden}
+  .nbrow .t b{display:block;height:100%;border-radius:99px;background:var(--green);transform-origin:left;transition:transform var(--spring-smooth-ms) var(--spring-smooth)}
+  .nbrow .v{font-family:var(--mono);font-weight:700;text-align:right;font-size:.85rem}
+  .eq{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem;font-size:1.05rem;margin:.2rem 0 .4rem}
+  .eq select{font:inherit;font-weight:700;border:1px solid var(--line);border-radius:9px;padding:.2rem .3rem;background:#fff;max-width:7.5rem}
+  .eq .op{font-weight:800;color:var(--muted)}
+  .result{font:800 1.6rem/1.2 var(--sans);letter-spacing:-.02em;color:var(--orange)}
+  .presetrow{display:flex;flex-wrap:wrap;gap:.3rem}
+  .presetrow .chip{font-size:.8rem}
+  .presetrow .chip.on{background:#fff4e6;border-color:var(--orange);color:#d9480f}
+  .catlegend{display:flex;flex-wrap:wrap;gap:.25rem .8rem;font-size:.82rem;margin:.4rem .4rem .2rem}
+  .catlegend i{display:inline-block;width:.7rem;height:.7rem;border-radius:50%;margin-right:.3rem;vertical-align:-1px}
+  .unkline{font-size:.88rem;color:var(--red);margin:.3rem .4rem 0;min-height:1.2rem}
+
+  /* ④ company matrix */
+  .company{border-collapse:separate;border-spacing:3px;font-size:.92rem;margin:.4rem 0}
+  .company th{font-weight:700;padding:.2rem .5rem;text-align:center}
+  .company th.s{text-align:left;font-weight:500;color:var(--ink)}
+  .company td{width:3.6rem;height:2.1rem;text-align:center;border-radius:8px;font-weight:700}
+  .company td.y{background:#ebfbee;color:var(--green)}
+  .company td.n{background:var(--soft);color:#ced4da}
+  .company tr.sim th.s{font-weight:700}
+  .company col.hi{background:#fff9db}
+
+  /* ⑤ recap */
+  .recap{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:.6rem;margin:.6rem 0}
+  .recap div{background:#fff;border:1px solid var(--line);border-radius:16px;padding:.7rem .8rem;text-align:center}
+  .recap .em{font-size:2rem;line-height:1.2}
+  .recap b{display:block;font-size:1.02rem}
+  .recap span{display:block;font-size:.85rem;color:var(--muted)}
+  .recap .last{border:2px solid var(--green);background:var(--good-bg)}
+  .scrollx{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+  /* ③ the whole family (roadmap) */
+  .steps{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin:.4rem 0 .8rem}
+  .steps span{background:#fff;border:1px solid var(--line);border-radius:12px;padding:.35rem .7rem;font-size:.95rem;line-height:1.3;text-align:center}
+  .steps span small{display:block;font-family:var(--mono);font-size:.78rem;color:var(--muted)}
+  .steps i{font-style:normal;color:var(--blue);font-weight:800}
+  .docs{display:flex;flex-wrap:wrap;gap:.4rem;margin:.2rem 0 .8rem}
+  .doc{font-family:var(--mono);font-size:.92rem;background:#fff;border:1px solid var(--line);border-radius:10px;padding:.25rem .65rem}
+  .doc b{color:var(--muted);margin-right:.35rem}
+  .eras{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,3.6fr) minmax(0,4.4fr);gap:.6rem}
+  @media (max-width:900px){.eras{grid-template-columns:1fr}}
+  .era{--ec:#2f6fed;--ebg:#e7f0ff;background:#fff;border:1px solid var(--line);border-top:4px solid var(--ec);border-radius:14px;padding:.55rem .65rem}
+  .era.e2,.mpanel.e2{--ec:#e8590c;--ebg:#fff4e6}
+  .era.e3,.mpanel.e3{--ec:#2f9e44;--ebg:#ebfbee}
+  .era h4{margin:0 0 .45rem;font-size:.98rem;color:var(--ec)}
+  .era h4 small{display:block;font-weight:500;color:var(--muted);font-size:.8rem}
+  .pills{display:flex;flex-wrap:wrap;gap:.3rem}
+  .mp{font:inherit;font-size:.84rem;border:1px solid var(--line);background:#fff;border-radius:10px;padding:.25rem .55rem .25rem .3rem;cursor:pointer;color:var(--ink);display:inline-flex;gap:.35rem;align-items:center}
+  .mp .k{display:inline-grid;place-items:center;width:1.35rem;height:1.35rem;border-radius:50%;background:var(--soft);font-size:.72rem;font-weight:800}
+  .mp:hover{border-color:var(--ec)}
+  .mp.on{border-color:var(--ec);background:var(--ebg);font-weight:700}
+  .mp.on .k{background:var(--ec);color:#fff}
+  .mpanel{--ec:#2f6fed;--ebg:#e7f0ff;background:#fff;border:2px solid var(--ec);border-radius:18px;padding:.9rem 1.1rem;margin-top:.8rem;min-width:0}
+  .mpanel .top{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+  .mpanel .top .k{display:inline-grid;place-items:center;width:2rem;height:2rem;border-radius:50%;background:var(--ec);color:#fff;font-weight:800}
+  .mpanel h3{margin:0;font-size:1.35rem}
+  .etag{font-size:.75rem;font-weight:700;border-radius:999px;padding:.1rem .6rem;background:var(--ebg);color:var(--ec)}
+  .mpanel .idea{font-size:1.12rem;font-weight:600;margin:.45rem 0 .7rem}
+  .mviz{min-width:0;overflow-x:auto}
+  .mlab{font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:.7rem 0 .3rem}
+  .mlab:first-child{margin-top:0}
+  .pc{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.8rem}
+  @media (max-width:640px){.pc{grid-template-columns:1fr}}
+  .pc div{border-radius:10px;padding:.45rem .7rem;font-size:.92rem;line-height:1.4}
+  .pc .g{background:var(--good-bg);color:#2b8a3e}
+  .pc .b{background:var(--bad-bg);color:#c92a2a}
+  .mnav{display:flex;justify-content:space-between;gap:.5rem;margin-top:.8rem}
+  .mt{border-collapse:separate;border-spacing:3px;font-family:var(--mono);font-size:.85rem}
+  .mt th{font-weight:700;padding:.1rem .35rem;color:var(--muted);text-align:center}
+  .mt th.r{text-align:right;color:var(--ink);white-space:nowrap}
+  .mt td{min-width:2.5rem;text-align:center;border-radius:6px;padding:.2rem .35rem;background:var(--soft);border:1px solid var(--line);color:#adb5bd}
+  .mt td.on{background:#e7f0ff;border-color:#a5c4ff;color:#1c4fd1;font-weight:700}
+  .mt td.hot{background:#fff4e6;border-color:#ffc078;color:#d9480f;font-weight:700}
+  .tk{display:inline-block;font-family:var(--mono);font-size:.86rem;background:var(--soft);border:1px solid var(--line);border-radius:7px;padding:.08rem .45rem;margin:.1rem .1rem}
+  .tk.on{background:#e7f0ff;border-color:#a5c4ff;color:#1c4fd1;font-weight:700}
+  .tk.hot{background:#fff4e6;border-color:#ffc078;color:#d9480f;font-weight:700}
+  .tk.miss{background:#fff;border-style:dashed;color:var(--muted)}
+  .vrow{display:grid;grid-template-columns:minmax(5rem,11rem) minmax(0,1fr);gap:.6rem;align-items:center;margin:.25rem 0}
+  .vrow > span{font-family:var(--mono);font-size:.86rem;font-weight:700;text-align:right}
+  .vec{display:grid;gap:2px;max-width:24rem}
+  .vec i{height:1.6rem;border-radius:4px;border:1px solid rgba(0,0,0,.07);font-style:normal;font-family:var(--mono);font-size:.7rem;display:grid;place-items:center;color:#1c2230}
+  .sbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(4rem,9rem) 3rem;gap:.6rem;align-items:center;margin:.3rem 0;font-size:.92rem}
+  .sbar .t{height:.75rem;border-radius:99px;background:var(--soft);overflow:hidden}
+  .sbar .t b{display:block;height:100%;border-radius:99px;background:var(--ec)}
+  .sbar .v{font-family:var(--mono);font-weight:700;text-align:right}
+  .flow2{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem}
+  .flow2 span{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:.3rem .65rem;font-weight:600;font-size:.92rem}
+  .flow2 i{font-style:normal;color:var(--muted);font-weight:800}
+  .buckets{display:grid;grid-template-columns:repeat(8,minmax(3.4rem,1fr));gap:4px}
+  .buckets div{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:.25rem;text-align:center;min-height:4.2rem}
+  .buckets div b{display:block;font-family:var(--mono);font-size:.75rem;color:var(--muted)}
+  .buckets div .tk{font-size:.75rem}
+  .note2{font-size:.88rem;color:var(--muted);margin:.4rem 0 0}
+  .kinds{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:.7rem;margin:.6rem 0}
+  .kind{background:#fff;border:1px solid var(--line);border-top:4px solid var(--ec);border-radius:14px;padding:.7rem .85rem}
+  .kind h4{margin:0;font-size:1.05rem;color:var(--ec)}
+  .kind .who2{font-size:.82rem;color:var(--muted);margin:.1rem 0 .5rem}
+  .kind p{font-size:.92rem;margin:.5rem 0 0;line-height:1.4}
+  .kind.e1{--ec:#2f6fed}.kind.e2{--ec:#e8590c}.kind.e3{--ec:#2f9e44}
+  .order{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:.7rem;margin:.5rem 0}
+  .order div{background:#fff;border:1px solid var(--line);border-radius:14px;padding:.6rem .85rem}
+  .order h4{margin:0 0 .3rem;font-size:.98rem}
+  .order ol{margin:0;padding-left:1.4rem;font-size:.92rem;line-height:1.55}
+  .order .why{font-size:.82rem;color:var(--muted);margin:.35rem 0 0}
+
+  @media (prefers-reduced-motion:reduce){
+    .ladder.build .rung,.ladder.build .rung .viz > *{animation:none}
+    #map .ring{animation:none;opacity:0}
+    #map .arw,.meter .fill,.nbrow .t b,#map .wd .dot,#map .wd,.arow .bar i{transition:none}
+  }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="topbar-in">
+  <a class="brand" href="index.html">🧠 Training, <span>Visualized</span></a>
+  <nav class="nav">
+    <a href="01_what_is_a_model.html" title="What is a model?">1</a>
+    <a href="02_gradient_descent.html" title="Gradient descent">2</a>
+    <a href="03_backpropagation.html" title="Backpropagation">3</a>
+    <a href="04_training_loop.html" title="The training loop">4</a>
+    <a href="05_activation_functions.html" title="Activation functions &amp; softmax">5</a>
+    <a href="06_neural_network_playground.html" title="Neural network playground">6</a>
+    <a href="07_overfitting.html" title="Overfitting">7</a>
+    <a href="08_dropout_batchnorm.html" title="Dropout &amp; BatchNorm">8</a>
+    <a href="09_metrics.html" title="Is it any good? Metrics">9</a>
+    <a href="10_cnn_convolution.html" title="How a CNN sees">10</a>
+    <a href="11_transfer_learning.html" title="Transfer learning">11</a>
+    <a href="12_quantization_pruning.html" title="Quantization &amp; pruning">12</a>
+    <a href="13_data_augmentation.html" title="Data augmentation">13</a>
+    <a href="14_image_segmentation.html" title="Image segmentation">14</a>
+    <a href="15a_text_to_numbers.html" class="on" title="Text to numbers">15a</a>
+    <a href="15_rnn_lstm.html" title="RNN &amp; LSTM">15</a>
+    <!-- <a href="16_reinforcement_learning.html" title="Reinforcement learning">16</a> -->
+  </nav>
+  <button class="modebtn" id="modeBtn" type="button">👶 Simple view</button>
+</div></header>
+
+<main class="wrap">
+<section class="hero">
+  <div class="kicker">Lesson 15a · warm-up for Lesson 15 · ≈ 30 min</div>
+  <h1>Text <span class="arrow">→</span> numbers</h1>
+  <p class="sub">A model only understands numbers. So every word must become numbers first.</p>
+  <div class="flow"><span><b>text</b></span><i>➜</i><span><b>tokens</b></span><i>➜</i><span><b>numbers</b></span><i>➜</i><span><b>model</b></span></div>
+  <div class="analogy">
+    <div class="arow"><div class="who">🐱 ↔ 🐈</div><div><div class="lbl">cat · kitten</div><div class="bar"><i id="ab1" style="background:var(--green)">next door</i></div></div></div>
+    <div class="arow"><div class="who">🐱 ↔ 🚗</div><div><div class="lbl">cat · car</div><div class="bar"><i id="ab2" style="background:var(--orange)">far away</i></div></div></div>
+    <div class="tag">🗺️ Give every word a place on a map. Close place = close meaning.</div>
+  </div>
+</section>
+
+<!-- ① spelling is not meaning -->
+<section class="card">
+  <h2>① Spelling is not meaning</h2>
+  <p class="bigq">Which is closer to <i>cat</i>: <span style="color:var(--c-machine)">car</span> or <span style="color:var(--c-animal)">kitten</span>?</p>
+  <div class="vs">
+    <div class="wcard"><input id="wA" value="cat" maxlength="14" spellcheck="false" aria-label="first word"><div class="codes" id="cA"></div></div>
+    <div class="mid">vs</div>
+    <div class="wcard"><input id="wB" value="car" maxlength="14" spellcheck="false" aria-label="second word"><div class="codes" id="cB"></div></div>
+  </div>
+  <div class="chips" id="vsPre">
+    <button class="chip" data-a="cat" data-b="car">cat · car</button>
+    <button class="chip" data-a="cat" data-b="kitten">cat · kitten</button>
+    <button class="chip" data-a="happy" data-b="glad">happy · glad</button>
+    <button class="chip" data-a="king" data-b="queen">king · queen</button>
+  </div>
+  <div class="meters">
+    <div class="meter"><div class="lbl">🔤 By the letters</div><div class="num" id="mL">67%</div><div class="track"><div class="fill" id="fL" style="background:#868e96"></div></div><div class="why" id="wL"></div></div>
+    <div class="meter"><div class="lbl">🗺️ By the meaning</div><div class="num" id="mM">5%</div><div class="track"><div class="fill" id="fM" style="background:var(--green)"></div></div><div class="why" id="wM"></div></div>
+  </div>
+  <div class="look">👀 Letters say <b>cat ≈ car</b>. Meaning says <b>cat ≈ kitten</b>.</div>
+  <p class="small muted adv">"By the letters" = share of positions where both words have the same character code (Unicode). "By the meaning" = cosine similarity of the two words' embeddings in our mini model from ③ (negative values shown as 0%).</p>
+</section>
+
+<!-- ② THE MACHINE -->
+<section class="card" id="machine">
+  <h2>② The text-to-numbers machine</h2>
+  <p class="bigq">One sentence, five ways to turn it into numbers.</p>
+  <form class="composer" id="sForm" autocomplete="off">
+    <input id="sIn" value="the king and queen love pizza" maxlength="80" spellcheck="false" aria-label="your sentence">
+    <button class="btn primary go" type="submit">Make numbers ⏎</button>
+  </form>
+  <div class="chips" id="sPre">
+    <button class="chip">the cat drank milk</button>
+    <button class="chip">dog bites man</button>
+    <button class="chip">man bites dog</button>
+    <button class="chip">i love my phone</button>
+    <button class="chip">a giraffe ate my homework</button>
+  </div>
+
+  <div class="ladder" id="ladder">
+    <div class="rung" style="--r:0">
+      <div class="head"><span class="em">✍️</span><span class="n">1</span><h3>Letter codes</h3><span class="ana">the ink</span><span class="per" id="per1"></span></div>
+      <div><div class="viz" id="v1"></div><div class="verdict bad">✗ Spelling only: <i>cat</i> looks like <i>car</i>.</div></div>
+    </div>
+    <div class="rung" style="--r:1">
+      <div class="head"><span class="em">🏷️</span><span class="n">2</span><h3>Word IDs</h3><span class="ana">a name tag</span><span class="per" id="per2"></span></div>
+      <div><div class="viz" id="v2"></div><div class="verdict bad" id="vd2">✗ Just labels: word 40 is not "half of" word 80.</div></div>
+    </div>
+    <div class="rung" style="--r:2">
+      <div class="head"><span class="em">💡</span><span class="n">3</span><h3>One-hot</h3><span class="ana">one switch on</span><span class="per" id="per3"></span></div>
+      <div><div class="viz" id="v3"></div><div class="verdict bad">✗ Huge, mostly zeros. <i>cat</i> is as far from <i>kitten</i> as from <i>pizza</i>.</div></div>
+    </div>
+    <div class="rung" style="--r:3">
+      <div class="head"><span class="em">🛍️</span><span class="n">4</span><h3>Bag of words</h3><span class="ana">a shopping list</span><span class="per" id="per4"></span></div>
+      <div><div class="viz" id="v4"></div><div class="verdict bad" id="vd4">✗ Order is lost: "dog bites man" = "man bites dog".</div></div>
+    </div>
+    <div class="rung best" style="--r:4">
+      <div class="head"><span class="em">🗺️</span><span class="n" style="background:var(--green)">5</span><h3>Embedding</h3><span class="ana">a place on the map</span><span class="per" id="per5"></span></div>
+      <div><div class="viz" id="v5"></div><div class="verdict good">✓ Small, and similar words get similar numbers.</div></div>
+    </div>
+  </div>
+  <div class="chipsrow">
+    <span class="wchip">🧩 <b>Token</b> = one piece of text</span>
+    <span class="wchip">📖 <b>Vocabulary</b> = the word list</span>
+    <span class="wchip">❓ <b>&lt;unk&gt;</b> = unknown word</span>
+    <span class="wchip">🔢 <b>Vector</b> = a list of numbers</span>
+  </div>
+  <div class="grid2 adv" style="margin-top:.8rem">
+    <div class="callout info"><h3>🎓 Detailed: TF-IDF, a smarter bag</h3><p class="small">A bag of words where each count is multiplied by how <b>rare</b> the word is across all documents:
+      <code>tfidf = count × log(N / docs_with_word)</code>. Little words like <i>the</i> get almost 0, rare words like <i>prize</i> get a big weight. It is still a bag, so the order is still lost. TF-IDF with logistic regression is a strong, cheap baseline for spam.</p></div>
+    <div class="callout info"><h3>🎓 Detailed: what ChatGPT really uses</h3><p class="small">Real models do not use whole words. They use <b>sub-word tokens</b> (BPE / WordPiece): <code>unhappiness → un · happi · ness</code>.
+      That way there is almost never an <code>&lt;unk&gt;</code>, and the vocabulary stays near 50,000 tokens (GPT-2: 50,257). Then each token ID goes through an embedding table, exactly like row 5.</p></div>
+  </div>
+</section>
+
+<!-- ③ the whole family -->
+<section class="card" id="family">
+  <h2>③ The whole family: 14 ways to turn text into numbers</h2>
+  <p class="bigq">Every method does the same job. Only the middle step changes.</p>
+  <div class="steps">
+    <span><b>Text</b><small>"I love cats"</small></span><i>→</i>
+    <span><b>Tokens</b><small>[i] [love] [cats]</small></span><i>→</i>
+    <span><b>Numbers</b><small>[1, 2, 3] or [0.21, −0.84, …]</small></span><i>→</i>
+    <span><b>Model</b><small>learns from the numbers</small></span>
+  </div>
+  <p class="hint">Click a method. Every example uses these same 3 sentences:</p>
+  <div class="docs">
+    <span class="doc"><b>D1</b>i love cats</span>
+    <span class="doc"><b>D2</b>i love dogs</span>
+    <span class="doc"><b>D3</b>dogs are great</span>
+  </div>
+  <div class="eras">
+    <div class="era e1"><h4>Counting words<small>sparse: long lists, mostly zeros</small></h4><div class="pills" id="pills1"></div></div>
+    <div class="era e2"><h4>Learned word vectors<small>dense: short lists, similar words get similar numbers</small></h4><div class="pills" id="pills2"></div></div>
+    <div class="era e3"><h4>Context<small>the numbers depend on the whole sentence</small></h4><div class="pills" id="pills3"></div></div>
+  </div>
+  <div class="mpanel" id="mPanel" aria-live="polite">
+    <div class="top"><span class="k" id="mK">1</span><h3 id="mName"></h3><span class="etag" id="mEra"></span></div>
+    <div class="idea" id="mIdea"></div>
+    <div class="mviz" id="mViz"></div>
+    <div class="pc"><div class="g" id="mGood"></div><div class="b" id="mBad"></div></div>
+    <div class="mnav"><button class="btn ghost" id="mPrev" type="button">← Previous</button><button class="btn primary" id="mNext" type="button">Next →</button></div>
+  </div>
+
+  <h3 style="margin-top:1.4rem">The big picture: three kinds of numbers</h3>
+  <div class="kinds">
+    <div class="kind e1"><h4>Sparse</h4><div class="who2">Bag of words, TF-IDF, n-grams, hashing</div>
+      <div class="vec" id="kSparse" style="grid-template-columns:repeat(16,minmax(0,1fr))"></div>
+      <p>One slot per word in the vocabulary. Mostly zeros. Tells you <b>which words appear and how often</b>.</p></div>
+    <div class="kind e2"><h4>Dense</h4><div class="who2">Word2Vec, GloVe, FastText</div>
+      <div class="vec" id="kDense" style="grid-template-columns:repeat(8,minmax(0,1fr))"></div>
+      <p>A short list of learned numbers. Tells you <b>what a word means</b>: similar words get similar numbers.</p></div>
+    <div class="kind e3"><h4>Contextual</h4><div class="who2">BERT, Transformers, modern embedding models</div>
+      <div class="vec" id="kCtx1" style="grid-template-columns:repeat(8,minmax(0,1fr));margin-bottom:3px"></div>
+      <div class="vec" id="kCtx2" style="grid-template-columns:repeat(8,minmax(0,1fr))"></div>
+      <p>The same word gets <b>different numbers in different sentences</b>: "river bank" vs "money in the bank".</p></div>
+  </div>
+
+  <h3 style="margin-top:1.2rem">A good order to learn them</h3>
+  <div class="order">
+    <div><h4>1. Beginner: traditional NLP</h4><ol><li>Tokenization</li><li>Integer encoding</li><li>One-hot</li><li>Bag of words</li><li>N-grams</li><li>TF-IDF</li></ol><p class="why">Text becomes counts.</p></div>
+    <div><h4>2. Intermediate: word vectors</h4><ol start="7"><li>Word embeddings</li><li>Word2Vec</li><li>GloVe</li><li>FastText</li></ol><p class="why">Why short dense vectors beat huge sparse ones.</p></div>
+    <div><h4>3. Modern NLP</h4><ol start="11"><li>Contextual embeddings</li><li>Attention</li><li>Transformers, BERT</li><li>Sentence embeddings</li><li>LLM embeddings</li><li>Vector databases, semantic search</li><li>RAG</li></ol><p class="why">Meaning depends on context.</p></div>
+  </div>
+</section>
+
+<!-- ④ the map -->
+<section class="card" id="mapcard">
+  <h2>④ Meaning becomes a place</h2>
+  <p class="bigq">Similar words live close together.</p>
+  <p class="hint">👆 Click any word. Your sentence from ② is lit up.</p>
+  <div class="maplab">
+    <div class="mapbox">
+      <div class="mapscroll"><svg id="map" viewBox="0 0 1000 640" role="img" aria-label="Map of word embeddings: similar words are close together"></svg></div>
+      <div class="catlegend" id="catLegend"></div>
+      <div class="unkline" id="unkLine"></div>
+    </div>
+    <div class="side">
+      <div class="panel">
+        <h3>🔍 Clicked word</h3>
+        <div class="bigword" id="pWord">cat</div>
+        <div class="emb" id="pVec" style="margin:.45rem 0 .2rem"></div>
+        <div class="small muted" style="margin:.4rem 0 .2rem">Closest words:</div>
+        <div id="pNb"></div>
+      </div>
+      <div class="panel">
+        <h3>➕ Word maths</h3>
+        <div class="presetrow" id="anPre">
+          <button class="chip on" data-q="king,man,woman">👑 king − man + woman</button>
+          <button class="chip" data-q="kitten,cat,dog">🐾 kitten − cat + dog</button>
+          <button class="chip" data-q="paris,france,japan">📍 paris − france + japan</button>
+        </div>
+        <div class="eq"><select id="aA"></select><span class="op">−</span><select id="aB"></select><span class="op">+</span><select id="aC"></select><span class="op">=</span></div>
+        <div class="result" id="aRes">queen</div>
+        <div class="small" id="aWhy"></div>
+      </div>
+    </div>
+  </div>
+  <div class="look">👀 <b>man → king</b> is a "royal" step. Same step from <b>woman</b> lands on <b>queen</b>.</div>
+  <div class="chipsrow"><span class="wchip">🧪 Tiny hand-made model: 14 numbers per word. Real ones: 300 to 3,000.</span></div>
+  <div class="adv">
+    <div class="callout think" style="margin:.8rem 0 0"><b>🧪 Honest note:</b> a real model's embedding has 300 to 3,000 numbers, and nobody gives them names. We built a <b>tiny hand-made</b> model with 14 numbers and named 12 of them
+      (🐾 animal, 👑 royal, ♀ female…) so you can read them. Then we flattened the 14 numbers to 2 so they fit on a screen. Real models find the same kind of map on their own, from millions of sentences.</div>
+    <p class="small muted" style="margin-top:.6rem">Similarity = cosine similarity in all 14 dimensions: <code>cos(a,b) = a·b / (|a|·|b|)</code>. In word maths we skip the three input words when we search for the nearest one; that is the standard trick (word2vec does it too), because <i>king − man + woman</i> is often still closest to <i>king</i> itself.
+      The map uses a fixed linear projection from 14 numbers to 2, then nudges overlapping labels apart a little, so map distances are only roughly right. Trust the similarity numbers.</p>
+  </div>
+</section>
+
+<!-- ④ how a model learns the map -->
+<section class="card">
+  <h2>⑤ Who decides where a word lives?</h2>
+  <p class="bigq">The model learns it: words used in the same sentences end up close.</p>
+  <div class="scrollx">
+  <table class="company">
+    <tr><th class="s"></th><th>🐱<br>cat</th><th>🐈<br>kitten</th><th>🐶<br>dog</th><th>🚗<br>car</th><th>🍕<br>pizza</th></tr>
+    <tr><th class="s">I fed my ___ some milk.</th><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td></tr>
+    <tr><th class="s">The ___ chased a mouse.</th><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td></tr>
+    <tr><th class="s">The ___ is sleeping on the sofa.</th><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="n">✗</td><td class="n">✗</td></tr>
+    <tr><th class="s">I parked the ___ outside.</th><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td><td class="n">✗</td></tr>
+    <tr><th class="s">We ordered a hot ___.</th><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="n">✗</td><td class="y">✓</td></tr>
+  </table>
+  </div>
+  <div class="look">👀 Same ticks → same neighbourhood. <b>car</b> has different ticks, so it lives far away.</div>
+  <div class="rowlbl">📏 Numbers per word</div>
+  <div class="bignums">
+    <div class="bignum"><b style="color:var(--blue)">14</b><span>our mini map</span></div>
+    <div class="bignum"><b>32</b><span>Notebook 07 spam model</span></div>
+    <div class="bignum"><b>300</b><span>word2vec (2013)</span></div>
+    <div class="bignum"><b>768</b><span>BERT-base (2018)</span></div>
+    <div class="bignum"><b>3,072</b><span>OpenAI embedding-3-large</span></div>
+  </div>
+  <div class="adv" style="margin-top:.8rem">
+    <h3>🔗 In Notebook 07</h3>
+    <p class="small">The spam model's first layer is an embedding table: <b>one row of 32 numbers for every word</b> in the vocabulary. They start random. During training, words that help to spot spam (<i>free</i>, <i>win</i>, <i>£</i>, <i>call</i>) slowly move to the same corner. (OpenAI text-embedding-3-small uses 1,536.)</p>
+    <pre class="code"><span class="c"># word IDs (row 2)  →  embeddings (row 5)</span>
+emb = nn.Embedding(len(vocab), <span class="n">32</span>, padding_idx=<span class="n">0</span>)
+ids = torch.tensor([[<span class="n">0</span>, <span class="n">0</span>, <span class="n">57</span>, <span class="n">12</span>, <span class="n">3</span>]])  <span class="c"># 0 = &lt;pad&gt;</span>
+emb(ids).shape   <span class="c"># (1, 5, 32): 32 numbers per word</span></pre>
+    <p class="small">An embedding layer is the same as multiplying a one-hot vector (row 3) by a weight matrix, just much faster: it picks one row. So row 3 and row 5 are connected: <code>one_hot @ W == W[id]</code>.</p>
+  </div>
+</section>
+
+<!-- ⑤ REMEMBER -->
+<section class="card">
+  <h2>🧠 Remember</h2>
+  <div class="recap">
+    <div><div class="em">✍️</div><b>Letters</b><span>the ink</span></div>
+    <div><div class="em">🏷️</div><b>Word IDs</b><span>a name tag</span></div>
+    <div><div class="em">💡</div><b>One-hot</b><span>one switch on</span></div>
+    <div><div class="em">🛍️</div><b>Bag of words</b><span>a shopping list</span></div>
+    <div class="last"><div class="em">🗺️</div><b>Embedding</b><span>a place on the map</span></div>
+  </div>
+  <p class="bigq" style="text-align:center;margin-top:.8rem">Close numbers = close meaning.</p>
+  <p style="text-align:center;margin:.2rem 0 0"><b style="color:#2f6fed">Sparse</b> (counts) → <b style="color:#e8590c">Dense</b> (learned meaning) → <b style="color:#2f9e44">Contextual</b> (meaning depends on the sentence)</p>
+</section>
+
+<section class="callout think">
+  <h3>🤔 Quick quiz</h3>
+  <ol class="challenges">
+    <li>Type <b>dog bites man</b>, then <b>man bites dog</b>. Which row stays the same?
+      <details class="answer"><summary>Answer</summary>🛍️ Bag of words. Same words, same counts, order lost.</details></li>
+    <li>Why do <i>giraffe</i> and <i>homework</i> both get ID 1?
+      <details class="answer"><summary>Answer</summary>They are not in the word list, so both become ❓ &lt;unk&gt;.</details></li>
+    <li>What does <b>paris − france + japan</b> give?
+      <details class="answer"><summary>Answer</summary><b>tokyo</b>. "Capital of" is a direction on the 🗺️ map.</details></li>
+    <li>In TF-IDF, which word gets a bigger weight in D1: <i>i</i> or <i>cats</i>?
+      <details class="answer"><summary>Answer</summary><b>cats</b>. It appears in only 1 of the 3 sentences, so it is rare and tells us more. <i>i</i> appears in 2 of 3.</details></li>
+    <li>"river bank" and "money in the bank": does Word2Vec give <i>bank</i> two different vectors?
+      <details class="answer"><summary>Answer</summary>No, Word2Vec has one vector per word. Contextual models like BERT give two different vectors.</details></li>
+  </ol>
+</section>
+
+<nav class="pager">
+  <a href="14_image_segmentation.html"><small>← Previous</small>14 · Image segmentation</a>
+  <a class="next" href="15_rnn_lstm.html"><small>Next →</small>15 · RNN &amp; LSTM</a>
+</nav>
+</main>
+
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ================= the mini embedding model =================
+// 14 numbers per word: 8 "kind of word" numbers, 4 "detail" numbers, 2 unnamed ones (like a real model).
+const DIMS=[['🐾','animal'],['🍕','food'],['📍','place'],['🧑','person'],['🚗','machine'],['💭','feeling'],['🏃','action'],['🔤','little word'],
+  ['👑','royal'],['♀','female'],['🍼','young'],['😊','positive'],['?','no name'],['?','no name']];
+const CATS=[['animal','🐾 animals','--c-animal'],['food','🍕 food & drink','--c-food'],['place','📍 places','--c-place'],['person','🧑 people','--c-person'],
+  ['machine','🚗 machines','--c-machine'],['feeling','💭 feelings','--c-feeling'],['action','🏃 actions','--c-action'],['little','🔤 little words','--c-little']];
+// word: [category, {r:royal,f:female,y:young,p:positive,a:free1,b:free2}]
+const W={
+ little:'the a an is are was i you he she we it my and to in on of not very this at with for me have',
+ animal:'cat dog kitten:y.6,=cat puppy:y.6,=dog lion tiger cow horse bird fish elephant monkey mouse',
+ food:'pizza burger apple banana mango rice bread tea coffee milk cake chocolate',
+ place:'india:a.5,b.6 france:a-.6,b.6 japan:a0,b.6 delhi:a.5,b-.6 mumbai:a.7,b-.4 paris:a-.6,b-.6 tokyo:a0,b-.6 london:a-.95,b-.55 city:a.9,b-.3 village:a.9,b.3 school:a-.3,b0 home:a.2,b0',
+ person:'man woman:f.7 king:r.8 queen:r.8,f.7 boy:y.6 girl:y.6,f.7 prince:r.8,y.6 princess:r.8,f.7,y.6 mother:f.7,y-.5 father:y-.5 doctor teacher student:y.3 friend',
+ machine:'car bus train bike phone laptop computer robot plane',
+ feeling:'happy:p.6 glad:p.6 sad:p-.6 love:p.6 hate:p-.6 good:p.6 bad:p-.6 great:p.6 terrible:p-.6 angry:p-.6 excited:p.6 fun:p.6',
+ action:'eat drink drank run play read bites chased drive sleep fly swim go like:p.3 love_:p.6'
+};
+function hash(s){let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0;}
+function rnd(s){return (hash(s)%10000)/10000*2-1;}   // deterministic −1…1
+const WORDS=[],VEC={},CAT={};
+for(const [ci,[cat]] of CATS.entries()){
+  for(const tok of W[cat].split(' ')){
+    let [w,mods]=tok.split(':');if(w.endsWith('_'))continue;
+    const v=DIMS.map((_,k)=>rnd(w+'#'+k)*0.05);          // a little noise everywhere, like a real vector
+    v[ci]+=1;
+    const m={};(mods||'').split(',').filter(Boolean).forEach(p=>m[p[0]]=p[0]==='='?p.slice(1):+p.slice(1));
+    const fw=m['=']||w;   // a baby animal shares the unnamed numbers of its grown-up
+    v[8]+=m.r||0;v[9]+=m.f||0;v[10]+=m.y||0;v[11]+=m.p||0;
+    v[12]+=('a' in m)?m.a:rnd(fw+'a')*0.3; v[13]+=('b' in m)?m.b:rnd(fw+'b')*0.3;
+    if(cat==='little'){v[12]=rnd(w+'a')*0.9;v[13]=rnd(w+'b')*0.9;}
+    WORDS.push(w);VEC[w]=v.map(x=>Math.round(x*100)/100);CAT[w]=cat;
+  }
+}
+const UNK=DIMS.map((_,k)=>Math.round(rnd('<unk>#'+k)*8)/100);
+// vocabulary like Notebook 07: 0 = <pad>, 1 = <unk>, common little words get the small numbers
+const VOCAB=['<pad>','<unk>',...WORDS],ID={};VOCAB.forEach((w,i)=>ID[w]=i);
+const V=VOCAB.length,MAXLEN=8;
+const dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0),norm=a=>Math.sqrt(dot(a,a)),cos=(a,b)=>dot(a,b)/(norm(a)*norm(b)||1);
+function nearest(v,skip,k=4,allowLittle=false){
+  return WORDS.filter(w=>!skip.includes(w)&&(allowLittle||CAT[w]!=='little')).map(w=>[w,cos(v,VEC[w])]).sort((a,b)=>b[1]-a[1]).slice(0,k);}
+const words=t=>(t.toLowerCase().match(/[a-z0-9£$!]+/g)||[]);   // same rule as Notebook 07
+function col(x){x=Math.max(-1,Math.min(1,x));const a=Math.abs(x);
+  const c=x<0?[47,111,237]:[240,140,0];return `rgb(${Math.round(255+(c[0]-255)*a)},${Math.round(255+(c[1]-255)*a)},${Math.round(255+(c[2]-255)*a)})`;}
+const strip=v=>v.map((x,k)=>`<i style="background:${col(x)}" title="${DIMS[k][0]} ${DIMS[k][1]}: ${x.toFixed(2)}">${Math.abs(x)>=.3?x.toFixed(1).replace('0.','.'):''}</i>`).join('');
+
+// ================= ① spelling vs meaning =================
+function codes(w){return [...w].map(c=>c.codePointAt(0));}
+function drawVs(){
+  const a=$('#wA').value.trim().toLowerCase(),b=$('#wB').value.trim().toLowerCase(),ca=codes(a),cb=codes(b),n=Math.max(ca.length,cb.length)||1;
+  let same=0;for(let i=0;i<Math.min(ca.length,cb.length);i++)if(ca[i]===cb[i])same++;
+  const box=(cs,w,o)=>cs.map((c,i)=>`<span class="code${o[i]===c?' same':''}"><b>${c}</b><small>${esc([...w][i])}</small></span>`).join('');
+  $('#cA').innerHTML=box(ca,a,cb);$('#cB').innerHTML=box(cb,b,ca);
+  const L=a&&b?same/n:0;$('#mL').textContent=Math.round(L*100)+'%';$('#fL').style.transform=`scaleX(${L})`;
+  $('#wL').textContent=a&&b?`${same} of ${n} letter codes match`:'';
+  if(VEC[a]&&VEC[b]){const m=Math.max(0,cos(VEC[a],VEC[b]));$('#mM').textContent=Math.round(m*100)+'%';$('#fM').style.transform=`scaleX(${m})`;
+    $('#wM').textContent=m>.7?'close neighbours on the map of meaning':m>.35?'related, but not the same':'different neighbourhoods';}
+  else{$('#mM').textContent='?';$('#fM').style.transform='scaleX(0)';$('#wM').textContent=`"${!VEC[a]?a:b}" is not in our mini model.`;}
+  $$('#vsPre .chip').forEach(c=>c.classList.toggle('on',c.dataset.a===a&&c.dataset.b===b));
+}
+['#wA','#wB'].forEach(s=>$(s).addEventListener('input',drawVs));
+$$('#vsPre .chip').forEach(c=>c.onclick=()=>{$('#wA').value=c.dataset.a;$('#wB').value=c.dataset.b;drawVs();});
+
+// ================= ② the machine =================
+let SENT=[];
+function build(animate){
+  const ws=words($('#sIn').value).slice(0,MAXLEN);SENT=ws;
+  if(!ws.length){['#v1','#v2','#v3','#v4','#v5'].forEach(s=>$(s).innerHTML='<p class="muted small">Type a few words first.</p>');return;}
+  const unk=w=>ID[w]===undefined;
+  const lbl=w=>`<div class="wl${unk(w)?' unk':''}">${esc(w)}</div>`;
+  // 1 letters
+  $('#v1').innerHTML=ws.map(w=>`<div class="wrow">${lbl(w)}<div class="cells">${codes(w).map(c=>`<span class="cell">${c}</span>`).join('')}</div></div>`).join('');
+  $('#per1').textContent='numbers per word: 1 per letter';
+  // 2 IDs, padded at the front like Notebook 07
+  const ids=ws.map(w=>unk(w)?1:ID[w]),padded=[...Array(MAXLEN-ids.length).fill(0),...ids];
+  $('#v2').innerHTML=`<div class="cells" style="margin-bottom:.4rem">${ws.map((w,i)=>`<span class="cell ${ids[i]===1?'unk':'id'}">${esc(w)} → ${ids[i]}</span>`).join('')}</div>
+    <div class="small muted">Padded to ${MAXLEN} (empty = 0):</div>
+    <div class="cells">${padded.map(x=>`<span class="cell ${x===0?'pad':x===1?'unk':'id'}">${x}</span>`).join('')}</div>`;
+  $('#per2').textContent='numbers per word: 1';
+  const nu=ws.filter(unk).length;
+  $('#vd2').innerHTML=nu?`✗ ${nu} unknown word${nu>1?'s':''} → all become <b>1</b>. Just labels, no meaning.`
+    :'✗ Just labels: word 40 is not "half of" word 80.';
+  // 3 one-hot
+  const oh=id=>`<div class="oh" style="grid-template-columns:repeat(${V},minmax(0,1fr))">${Array.from({length:V},(_,k)=>`<i${k===id?' class="on"':''}></i>`).join('')}</div>`;
+  $('#v3').innerHTML=ws.map((w,i)=>`<div class="wrow">${lbl(w)}<div class="oh-wrap">${oh(ids[i])}<small>#${ids[i]}</small></div></div>`).join('')
+    +`<div class="small muted">${V} switches per word. Real models: ~50,000.</div>`;
+  $('#per3').textContent=`numbers per word: ${V} (real: ~50,000)`;
+  // 4 bag of words
+  const cnt={};ids.forEach((id,i)=>{const k=id===1?'<unk>':ws[i];cnt[k]=(cnt[k]||0)+1;});
+  const mx=Math.max(...Object.values(cnt));
+  $('#v4').innerHTML=`<div class="bow" style="grid-template-columns:repeat(${V},minmax(0,1fr))">${VOCAB.map(w=>`<i${cnt[w]?` class="on" style="height:${12+34*cnt[w]/mx}px"`:''}></i>`).join('')}</div>
+    <div class="counts">${Object.entries(cnt).map(([w,n])=>`<span>${esc(w)}: ${n}</span>`).join('')}</div>`;
+  $('#per4').textContent=`numbers per sentence: ${V}`;
+  const shuf=[...ws].reverse().join(' ');
+  $('#vd4').innerHTML=ws.length>1&&shuf!==ws.join(' ')?`✗ Order is lost: "<i>${esc(shuf)}</i>" gives the same bag.`:'✗ Order is lost: "dog bites man" = "man bites dog".';
+  // 5 embedding
+  $('#v5').innerHTML=`<div class="embhead"><div></div><div class="emb">${DIMS.map(d=>`<i title="${d[1]}">${d[0]}</i>`).join('')}</div></div>`
+    +ws.map(w=>`<div class="wrow">${lbl(unk(w)?w+' (unk)':w)}<div class="emb">${strip(unk(w)?UNK:VEC[w])}</div></div>`).join('')
+    +`<div class="legendbar"><span>−1</span><span class="grad"></span><span>+1</span><span class="adv">· hover a cell to see its number</span></div>`;
+  $('#per5').textContent='numbers per word: 14 (real: 300–3,000)';
+  if(animate){const l=$('#ladder');l.classList.remove('build');void l.offsetWidth;l.classList.add('build');}
+  highlightSentence();
+}
+$('#sForm').addEventListener('submit',e=>{e.preventDefault();build(true);});
+$$('#sPre .chip').forEach(c=>c.onclick=()=>{$('#sIn').value=c.textContent;build(true);});
+
+// ================= ③ the map =================
+const SVGNS='http://www.w3.org/2000/svg';
+// fixed linear projection 14 → 2 (kinds of word around a circle, details as small steps)
+const ang={animal:140,food:88,feeling:36,place:-18,machine:-70,action:-122,person:192,little:null};
+const P=DIMS.map(()=>[0,0]);CATS.forEach(([c],i)=>{if(ang[c]!==null){const a=ang[c]*Math.PI/180;P[i]=[.70*Math.cos(a),.70*Math.sin(a)];}});
+P[8]=[0,.30];P[9]=[.30,0];P[10]=[-.22,-.20];P[11]=[.08,.34];P[12]=[.22,.05];P[13]=[-.04,.22];
+const proj=v=>[v.reduce((s,x,k)=>s+x*P[k][0],0),v.reduce((s,x,k)=>s+x*P[k][1],0)];
+const SX=x=>500+x*440,SY=y=>320-y*285;
+const POS={};WORDS.forEach(w=>{const [x,y]=proj(VEC[w]);POS[w]=[SX(x),SY(y)];});
+// nudge overlapping labels apart a little (display only)
+(function relax(){const lw=w=>w.length*7.3+8;
+  for(let it=0;it<80;it++)for(let i=0;i<WORDS.length;i++)for(let j=i+1;j<WORDS.length;j++){
+    const a=POS[WORDS[i]],b=POS[WORDS[j]],dx=b[0]-a[0],dy=b[1]-a[1],mx=(lw(WORDS[i])+lw(WORDS[j]))/2,my=19;
+    if(Math.abs(dx)<mx&&Math.abs(dy)<my){const px=(mx-Math.abs(dx)),py=(my-Math.abs(dy));
+      if(py<px){const s=(dy>=0?1:-1)*py/2*.5;a[1]-=s;b[1]+=s;}else{const s=(dx>=0?1:-1)*px/2*.5;a[0]-=s;b[0]+=s;}}}
+  WORDS.forEach(w=>{POS[w][0]=Math.max(30,Math.min(970,POS[w][0]));POS[w][1]=Math.max(22,Math.min(628,POS[w][1]));});})();
+const map=$('#map');
+function el(tag,attrs,parent){const e=document.createElementNS(SVGNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+const gZone=el('g',{},map),gLines=el('g',{},map),gArrows=el('g',{},map),gWords=el('g',{},map),gFx=el('g',{},map);
+el('defs',{},map).innerHTML='<marker id="ah" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#f08c00"/></marker>';
+CATS.forEach(([c,name,v])=>{if(ang[c]===null)return;const a=ang[c]*Math.PI/180,r=1.02;
+  const t=el('text',{class:'zone',x:SX(r*Math.cos(a)),y:SY(r*.98*Math.sin(a))+6,fill:`var(${v})`},gZone);t.textContent=name.replace(/^\S+ /,'');});
+const G={};
+WORDS.forEach(w=>{const c=CAT[w],cv=CATS.find(x=>x[0]===c)[2];
+  const g=el('g',{class:'wd'+(c==='little'?' little':''),transform:`translate(${POS[w][0].toFixed(1)},${POS[w][1].toFixed(1)})`,tabindex:0,role:'button','aria-label':w},gWords);
+  el('circle',{class:'dot',r:c==='little'?3.5:5,fill:`var(${cv})`},g);
+  const t=el('text',{y:-9},g);t.textContent=w;
+  g.addEventListener('click',()=>select(w));g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(w);}});
+  G[w]=g;});
+$('#catLegend').innerHTML=CATS.map(([c,n,v])=>`<span><i style="background:var(${v})"></i>${n}</span>`).join('');
+
+function clearCls(c){WORDS.forEach(w=>G[w].classList.remove(c));}
+function ring(w,color){const [x,y]=POS[w];el('circle',{class:'ring',cx:x,cy:y,r:26,stroke:color||'#2f6fed'},gFx);}
+function highlightSentence(){
+  clearCls('hl');gFx.innerHTML='';
+  const known=SENT.filter(w=>VEC[w]),unk=SENT.filter(w=>!VEC[w]);
+  known.forEach((w,i)=>{G[w].classList.add('hl');setTimeout(()=>ring(w),i*90);});
+  map.classList.toggle('dim',known.length>0||!!SEL);
+  $('#unkLine').innerHTML=unk.length?`❓ Not on the map (&lt;unk&gt;): <b>${unk.map(esc).join(', ')}</b>`:'';
+}
+let SEL=null;
+function select(w){
+  SEL=w;clearCls('sel');clearCls('nb');gLines.innerHTML='';
+  G[w].classList.add('sel');
+  const nb=nearest(VEC[w],[w],4,CAT[w]==='little');
+  nb.forEach(([n])=>{G[n].classList.add('nb');el('line',{class:'nbline',x1:POS[w][0],y1:POS[w][1],x2:POS[n][0],y2:POS[n][1]},gLines);});
+  map.classList.add('dim');
+  $('#pWord').textContent=w;$('#pWord').style.color=`var(${CATS.find(x=>x[0]===CAT[w])[2]})`;
+  $('#pVec').innerHTML=strip(VEC[w]);
+  $('#pNb').innerHTML=nb.map(([n,s])=>`<div class="nbrow"><span>${esc(n)}</span><div class="t"><b style="transform:scaleX(${Math.max(0,s)})"></b></div><span class="v">${Math.round(s*100)}%</span></div>`).join('');
+}
+
+// word maths
+const NAMED=WORDS.filter(w=>CAT[w]!=='little').sort();
+['#aA','#aB','#aC'].forEach(s=>$(s).innerHTML=NAMED.map(w=>`<option>${w}</option>`).join(''));
+function arrowPath(a,b,shrink){const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1,s=Math.min(shrink,L/3);
+  return {d:`M${a[0]+dx/L*s},${a[1]+dy/L*s} L${b[0]-dx/L*s},${b[1]-dy/L*s}`,len:Math.max(0,L-2*s)};}
+function drawArrow(a,b,cls,delay){const {d,len}=arrowPath(a,b,9);
+  const p=el('path',{class:'arw '+cls,d},gArrows);
+  p.style.strokeDasharray=len;p.style.strokeDashoffset=len;
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){p.style.strokeDashoffset=0;p.setAttribute('marker-end','url(#ah)');return;}
+  p.getBoundingClientRect();setTimeout(()=>{p.style.strokeDashoffset=0;},delay);
+  setTimeout(()=>p.setAttribute('marker-end','url(#ah)'),delay+500);}   // the head appears once the line has (almost) arrived
+function analogy(){
+  const A=$('#aA').value,B=$('#aB').value,C=$('#aC').value;
+  const v=VEC[A].map((x,k)=>x-VEC[B][k]+VEC[C][k]);
+  const [[R,s]]=nearest(v,[A,B,C],1);
+  $('#aRes').textContent=R;
+  const diff=VEC[A].map((x,k)=>x-VEC[B][k]),big=diff.map((x,k)=>[x,k]).filter(([x])=>Math.abs(x)>=.3).sort((a,b)=>Math.abs(b[0])-Math.abs(a[0])).slice(0,2);
+  const step=big.length?big.map(([x,k])=>`${DIMS[k][0]} ${DIMS[k][1]} ${x>0?'↑':'↓'}`).join(', '):'only small changes';
+  $('#aWhy').innerHTML=`<b>${esc(B)} → ${esc(A)}</b> = ${step}. Same step from <b>${esc(C)}</b> → <b>${esc(R)}</b> (${Math.round(s*100)}% match).`;
+  gArrows.innerHTML='';clearCls('an');[A,B,C,R].forEach(w=>G[w].classList.add('an'));map.classList.add('dim');
+  const pa=POS[A],pb=POS[B],pc=POS[C],land=[pc[0]+pa[0]-pb[0],pc[1]+pa[1]-pb[1]];
+  drawArrow(pb,pa,'a1',60);drawArrow(pc,land,'a2',700);
+  const lm=el('circle',{class:'land',cx:land[0],cy:land[1],r:7},gArrows);lm.style.opacity=0;setTimeout(()=>lm.style.opacity=1,1300);
+  $$('#anPre .chip').forEach(c=>c.classList.toggle('on',c.dataset.q===[A,B,C].join(',')));
+}
+['#aA','#aB','#aC'].forEach(s=>$(s).addEventListener('change',analogy));
+$$('#anPre .chip').forEach(c=>c.onclick=()=>{const [a,b,cc]=c.dataset.q.split(',');$('#aA').value=a;$('#aB').value=b;$('#aC').value=cc;analogy();});
+
+// ================= ③ the whole family: 14 methods on the same 3 sentences =================
+const FD=['i love cats','i love dogs','dogs are great'].map(s=>s.split(' '));
+const FV=['i','love','cats','dogs','are','great'];
+const tk=(w,c='')=>`<span class="tk ${c}">${esc(w)}</span>`;
+const lab=t=>`<div class="mlab">${t}</div>`;
+const fmt=x=>Number.isInteger(x)?String(x):x.toFixed(2);
+const vecHtml=(v,txt)=>`<div class="vec" style="grid-template-columns:repeat(${v.length},minmax(2.6rem,1fr))">${v.map((x,k)=>`<i style="background:${col(x)}">${txt?txt[k]:x.toFixed(2)}</i>`).join('')}</div>`;
+const vrow=(name,v)=>`<div class="vrow"><span>${name}</span>${vecHtml(v)}</div>`;
+function matrix(cols,rows,cls){   // rows: [[label, values]]
+  return `<div class="scrollx"><table class="mt"><tr><th></th>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr>`
+    +rows.map(([l,vs])=>`<tr><th class="r">${l}</th>${vs.map((v,j)=>`<td class="${cls?cls(v,j,vs):(v?'on':'')}">${fmt(v)}</td>`).join('')}</tr>`).join('')+`</table></div>`;}
+const counts=ws=>FV.map(w=>ws.filter(x=>x===w).length);
+const grams=(ws,n)=>ws.slice(0,ws.length-n+1).map((_,i)=>ws.slice(i,i+n).join(' '));
+const pieces=(w,n=3)=>{const s='<'+w+'>';return Array.from({length:s.length-n+1},(_,i)=>s.slice(i,i+n));};
+const DF=FV.map(w=>FD.filter(d=>d.includes(w)).length),IDF=DF.map(x=>Math.log(FD.length/x));
+const euclid=(a,b)=>Math.sqrt(a.reduce((s,x,i)=>s+(x-b[i])**2,0));
+const sbar=(l,v)=>`<div class="sbar"><span>${l}</span><div class="t"><b style="width:${Math.round(v*100)}%"></b></div><span class="v">${v.toFixed(2)}</span></div>`;
+const flow=items=>`<div class="flow2">${items.map(x=>`<span>${x}</span>`).join('<i>→</i>')}</div>`;
+
+const METHODS=[
+ {era:1,name:'Integer encoding',short:'Integer IDs',idea:'Give every word in the vocabulary a number.',
+  viz:()=>lab('The vocabulary')+FV.map((w,i)=>tk(`${w} → ${i+1}`,'on')).join('')
+    +lab('D1 "i love cats" becomes')+FD[0].map(w=>tk(FV.indexOf(w)+1,'on')).join('')
+    +`<p class="note2">But is dogs (4) "bigger" than cats (3)? Is dogs − cats = 1? These sums mean nothing.</p>`,
+  good:'Very simple: one number per word.',bad:'The numbers suggest an order (4 > 3) that does not exist.'},
+ {era:1,name:'One-hot encoding',short:'One-hot',idea:'One slot per vocabulary word. Switch on the slot of this word, all others 0.',
+  viz:()=>lab('The words of D1')+matrix(FV,FD[0].map(w=>[w,FV.map(v=>+(v===w))]))
+    +`<p class="note2">6 words → 6 slots. A real vocabulary has about 100,000 words → 100,000 slots, all 0 except one.</p>`,
+  good:'No fake order: every word is equally different.',bad:'Huge and mostly zeros. cats is as far from dogs as from great.'},
+ {era:1,name:'Bag of words (counts)',short:'Bag of words',idea:'Throw the words of a sentence into a bag and count them. One list per sentence.',
+  viz:()=>lab('One row per sentence (this is what CountVectorizer does)')
+    +matrix(FV,[...FD.map((d,i)=>[`D${i+1}`,counts(d)]),['"i love cats cats"',counts('i love cats cats'.split(' '))]])
+    +lab('The order is lost')+`<div>${['dog','bites','man'].map(w=>tk(w)).join('')} and ${['man','bites','dog'].map(w=>tk(w)).join('')} → both give <b>dog 1, bites 1, man 1</b></div>`,
+  good:'One fixed-length list for any sentence. Fast and easy.',bad:'Word order is lost: "dog bites man" = "man bites dog".'},
+ {era:1,name:'Binary bag of words',short:'Binary BoW',idea:'Like the bag of words, but only ask: is the word there? Yes = 1, no = 0.',
+  viz:()=>lab('"i love cats cats cats"')+matrix(FV,[['counts',counts('i love cats cats cats'.split(' '))],['binary',counts('i love cats cats cats'.split(' ')).map(x=>+(x>0))]],
+    (v,j,vs)=>v>1?'hot':v?'on':''),
+  good:'Even simpler. Works well for short texts.',bad:'"cats" said 3 times looks the same as once.'},
+ {era:1,name:'N-grams',short:'N-grams',idea:'Also count groups of neighbouring words, not only single words.',
+  viz:()=>{const s='i love machine learning'.split(' ');
+    return lab('Unigrams (1 word)')+s.map(w=>tk(w)).join('')+lab('Bigrams (2 words)')+grams(s,2).map(w=>tk(w,'on')).join('')
+    +lab('Trigrams (3 words)')+grams(s,3).map(w=>tk(w,'on')).join('')
+    +lab('Order comes back (a little)')+`<div>"dog bites man" → ${grams(['dog','bites','man'],2).map(w=>tk(w,'hot')).join('')}</div>`
+    +`<div>"man bites dog" → ${grams(['man','bites','dog'],2).map(w=>tk(w,'hot')).join('')}</div><p class="note2">Different bigrams, so the two sentences are now different.</p>`;},
+  good:'Keeps some word order. "machine learning" becomes one feature.',bad:'Many more slots: every pair of words needs its own.'},
+ {era:1,name:'TF-IDF',short:'TF-IDF',idea:'A bag of words where rare words count more and common words count less.',
+  viz:()=>lab('Step 1: in how many of the 3 sentences is each word? (rare = more useful)')
+    +matrix(FV,[['sentences',DF],['IDF',IDF.map(x=>+x.toFixed(2))]],(v,j)=>DF[j]===1?'hot':'on')
+    +lab('Step 2: TF-IDF = count × IDF')
+    +matrix(FV,FD.map((d,i)=>[`D${i+1}`,counts(d).map((c,j)=>+(c*IDF[j]).toFixed(2))]),(v,j)=>v>1?'hot':v?'on':'')
+    +`<p class="note2">IDF = log(3 ÷ sentences with the word). In D1, <b>cats</b> (1.10) beats <b>i</b> (0.41): cats is rarer, so it tells us more.
+      In real text, "the" is in almost every document → weight near 0. "quantum" is rare → high weight.</p>`,
+  good:'Common words fade out, important words stand out.',bad:'Still a bag: order is lost, and cats and kittens are unrelated.'},
+ {era:1,name:'Hashing trick',short:'Hashing',idea:'No vocabulary list. A hash function sends each word to one of a fixed number of buckets.',
+  viz:()=>{const B=8,bk=w=>hash(w)%B;
+    const cells=Array.from({length:B},(_,b)=>`<div><b>#${b}</b>${FV.filter(w=>bk(w)===b).map(w=>tk(w,FD[0].includes(w)?'on':'')).join('')}</div>`).join('');
+    const v=Array(B).fill(0);FD[0].forEach(w=>v[bk(w)]++);
+    return lab('8 buckets; blue = a word of D1')+`<div class="scrollx"><div class="buckets">${cells}</div></div>`
+      +lab('D1 becomes (count per bucket)')+matrix(Array.from({length:B},(_,b)=>'#'+b),[['D1',v]],x=>x>1?'hot':x?'on':'')
+      +(()=>{const hit=Array.from({length:B},(_,b)=>FV.filter(w=>bk(w)===b)).filter(ws=>ws.length>1);
+        return hit.length?`<p class="note2">Collision: ${hit.map(ws=>ws.map(w=>'<b>'+esc(w)+'</b>').join(' and ')).join('; ')} share a bucket, so the model cannot tell them apart.</p>`:'';})();},
+  good:'Fixed size, no vocabulary to store, new words just work.',bad:'Two different words can land in the same bucket (a collision).'},
+ {era:2,name:'Word2Vec',short:'Word2Vec',idea:'A small network plays a guessing game. As a side effect, every word gets a short vector of learned numbers.',
+  viz:()=>{const cat=[.8,.2,.7],dog=[.79,.21,.72],car=[.1,.9,.1];
+    return lab('Game 1 (CBOW): guess the missing word from its neighbours')+['the','cat'].map(w=>tk(w)).join('')+tk('___','miss')+['on','the','mat'].map(w=>tk(w)).join('')+' → '+tk('sits','hot')
+    +lab('Game 2 (Skip-gram): guess the neighbours from the word')+tk('cat','hot')+' → '+['the','sits','on','mat'].map(w=>tk(w)).join('')
+    +lab('What we keep: one short vector per word (3 numbers here, 300 in real Word2Vec)')+vrow('cat',cat)+vrow('dog',dog)+vrow('car',car)
+    +`<p class="note2">distance(cat, dog) = ${euclid(cat,dog).toFixed(2)}, very close. distance(cat, car) = ${euclid(cat,car).toFixed(2)}, far apart.</p>`;},
+  good:'Short vectors. Similar words get similar numbers.',bad:'One vector per word, whatever the sentence. A word never seen gets nothing.'},
+ {era:2,name:'GloVe',short:'GloVe',idea:'Count which words appear near each other in a huge amount of text, then squeeze those counts into short vectors.',
+  viz:()=>{const cols=['crown','royal','he','she','road'],rows=[['king',[40,35,30,3,1]],['queen',[38,33,3,30,1]],['man',[2,3,45,4,5]],['woman',[2,2,4,44,5]],['car',[0,0,3,3,50]]];
+    return lab('How often each word appears near another (made-up counts)')+matrix(cols,rows,(v,j,vs)=>v===Math.max(...vs)?'hot':v>=20?'on':'')
+    +`<p class="note2">Words used in similar places get similar rows: king and queen share "crown, royal". The difference man → woman is the same as king → queen,
+      so <b>king − man + woman ≈ queen</b>. Try it on the map in ④.</p>`;},
+  good:'Uses the whole text at once. Gives nice word relationships.',bad:'Like Word2Vec: one vector per word, no context.'},
+ {era:2,name:'FastText',short:'FastText',idea:'Build a word\'s vector from its small pieces (3 letters at a time), not only from the whole word.',
+  viz:()=>{const a=pieces('playing'),b=pieces('playng'),sh=b.filter(p=>a.includes(p));
+    return lab('"playing" in pieces (&lt; and &gt; mark the start and end)')+a.map(p=>tk(p,sh.includes(p)?'hot':'')).join('')
+    +lab('Typo "playng" in pieces')+b.map(p=>tk(p,sh.includes(p)?'hot':'')).join('')
+    +`<p class="note2">${sh.length} pieces are shared (orange). So the typo still gets a useful vector, close to "playing". Word2Vec would give it nothing.</p>`;},
+  good:'Handles rare words, typos and words never seen in training.',bad:'Still one vector per word: no context.'},
+ {era:3,name:'Contextual embeddings',short:'Contextual',idea:'The vector of a word depends on the sentence it is in.',
+  viz:()=>{const one=[.3,.5,-.2,.6,.1,-.4],money=[.8,.6,-.5,.2,.1,-.3],river=[-.4,.2,.7,.5,-.6,.3];
+    return lab('Word2Vec: "bank" always gets the same vector')+vrow('money in the bank',one)+vrow('the river bank',one)
+    +lab('Contextual: "bank" gets a different vector in each sentence')+vrow('money in the bank',money)+vrow('the river bank',river)
+    +`<p class="note2">Made-up numbers, to show the idea. The bank that holds money and the bank of a river are different things, so they should get different numbers.</p>`;},
+  good:'One word, many meanings: handled.',bad:'Needs a much bigger model to compute the numbers.'},
+ {era:3,name:'Transformers (BERT and others)',short:'Transformers',idea:'A Transformer reads the whole sentence at once. To build the vector of each word, it looks at all the other words.',
+  viz:()=>lab('To understand "bank", the model looks hardest at one word (attention)')
+    +`<div>${['i','sat','by','the'].map(w=>tk(w)).join('')}${tk('river','on')}${tk('bank','hot')} → bank of a river</div>`
+    +`<div>${['i','put'].map(w=>tk(w)).join('')}${tk('money','on')}${['in','the'].map(w=>tk(w)).join('')}${tk('bank','hot')} → bank for money</div>`
+    +lab('The pipeline')+flow(['whole sentence','Transformer','one vector for every token'])
+    +lab('Famous families')+['BERT','RoBERTa','DeBERTa','T5','GPT'].map(w=>tk(w,'on')).join(''),
+  good:'The best quality. One pre-trained model can be reused for many tasks.',bad:'Big and slower than counting. Needs a GPU to train.'},
+ {era:3,name:'Sentence and document embeddings',short:'Sentence / document',idea:'Turn a whole sentence, or a whole document, into one vector. Then compare meanings.',
+  viz:()=>lab('One sentence → one vector')+flow(['"I love programming"','embedding model','[0.12, −0.43, 0.81, …]'])
+    +`<p class="note2">Usually 384, 768, 1,024 or 1,536 numbers, depending on the model.</p>`
+    +lab('How similar is "I love programming" to… (made-up scores)')+sbar('"Programming is something I enjoy"',.89)+sbar('"I hate rainy weather"',.08)
+    +lab('Same idea for a whole document')+flow(['10-page PDF','embedding model','one vector'])
+    +`<p class="note2">Two documents are compared with <b>cosine similarity</b>: close vectors = similar content, even with different words.</p>`,
+  good:'Compare sentences or documents by meaning, not by shared words.',bad:'One vector for a long document can lose details.'},
+ {era:3,name:'LLM embeddings and RAG',short:'LLM embeddings',idea:'Modern embedding models turn questions and documents into vectors, so a computer can search by meaning.',
+  viz:()=>lab('RAG: Retrieval-Augmented Generation')+flow(['your question','embedding','vector','vector database','most similar documents','LLM writes the answer'])
+    +lab('Used for')+['semantic search','recommendations','duplicate detection','clustering','question answering','RAG'].map(w=>tk(w,'on')).join('')
+    +lab('Can embed')+['words','sentences','documents','queries','code','images'].map(w=>tk(w)).join('')
+    +`<p class="note2">Example: searching "cheap flights" also finds a page about "low-cost airfare", even with no word in common.</p>`,
+  good:'Search by meaning. This is how chatbots find the right documents.',bad:'Needs an embedding model plus a vector database.'}
+];
+const ERAS={1:['e1','Counting words · sparse'],2:['e2','Learned word vectors · dense'],3:['e3','Context · contextual']};
+let MI=0;
+METHODS.forEach((m,i)=>{const b=document.createElement('button');b.type='button';b.className='mp';b.dataset.i=i;
+  b.innerHTML=`<span class="k">${i+1}</span>${esc(m.short)}`;b.onclick=()=>showMethod(i);$('#pills'+m.era).appendChild(b);});
+function showMethod(i){
+  MI=(i+METHODS.length)%METHODS.length;const m=METHODS[MI],[ec,en]=ERAS[m.era];
+  $('#mPanel').className='mpanel '+ec;
+  $('#mK').textContent=MI+1;$('#mName').textContent=m.name;$('#mEra').textContent=en;
+  $('#mIdea').textContent=m.idea;$('#mViz').innerHTML=m.viz();
+  $('#mGood').textContent='Good: '+m.good;$('#mBad').textContent='Problem: '+m.bad;
+  $$('.mp').forEach(b=>b.classList.toggle('on',+b.dataset.i===MI));
+}
+$('#mPrev').onclick=()=>showMethod(MI-1);$('#mNext').onclick=()=>showMethod(MI+1);
+// big picture strips
+(function(){const sp=Array(16).fill(0);[2,7,11].forEach(k=>sp[k]=1);
+  $('#kSparse').innerHTML=sp.map(x=>`<i style="background:${x?'#a5c4ff':'#f8f9fa'}">${x}</i>`).join('');
+  const dense=[.42,-.31,.77,.05,-.66,.18,.53,-.24],c1=[.8,.6,-.5,.2,.1,-.3,.4,.1],c2=[-.4,.2,.7,.5,-.6,.3,-.2,.6];
+  const strip8=v=>v.map(x=>`<i style="background:${col(x)}">${x.toFixed(1)}</i>`).join('');
+  $('#kDense').innerHTML=strip8(dense);$('#kCtx1').innerHTML=strip8(c1);$('#kCtx2').innerHTML=strip8(c2);
+  $('#kCtx1').title='bank (money)';$('#kCtx2').title='bank (river)';})();
+showMethod(0);
+
+// hero bars grow when visible (display only: short = close, long = far)
+const heroBars=[['#ab1','18%'],['#ab2','92%']];
+if('IntersectionObserver' in window){const hio=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.style.width=heroBars.find(q=>$(q[0])===e.target)[1];hio.unobserve(e.target);}}),{threshold:.4});heroBars.forEach(([id])=>hio.observe($(id)));}else heroBars.forEach(([id,w])=>$(id).style.width=w);
+
+// start: everything filled in, nothing waiting for a click
+$('#aA').value='king';$('#aB').value='man';$('#aC').value='woman';
+drawVs();build(false);select('cat');analogy();
+// Scroll driver: the analogy arrows replay when the map first comes into view
+if('IntersectionObserver' in window){let done=false;new IntersectionObserver(es=>{if(!done&&es[0].isIntersecting){done=true;analogy();}},{threshold:.35}).observe($('#map'));}
+</script>
+<script>
+/* Simple / Detailed switch: simple view hides code and trainer notes (class "adv"). Remembered per browser. */
+(function(){var b=document.getElementById('modeBtn'),m='simple';try{m=localStorage.getItem('tv-mode')||'simple';}catch(e){}
+function set(s){document.body.classList.toggle('simple',s);b.textContent=s?'👶 Simple view (click for details)':'🎓 Detailed view (click to simplify)';}
+set(m==='simple');b.onclick=function(){var s=!document.body.classList.contains('simple');set(s);try{localStorage.setItem('tv-mode',s?'simple':'detailed');}catch(e){}window.dispatchEvent(new Event('resize'));};})();
+</script>
+</body>
+</html>
